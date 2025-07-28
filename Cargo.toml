@@ -1,0 +1,19 @@
+[package]
+authors = ["Guillaume Clément <gclement@baobob.org>"]
+name = "mqtt-system-monitor"
+version = "1.0.0"
+edition = "2024"
+license = "MIT"
+readme = "README.md"
+publish = false
+
+[dependencies]
+log = "0.4.17"
+rumqttc = "0.24.0"
+serde = { version = "1.0", features = ["derive"] }
+serde-inline-default = "0.2.3"
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+toml = "0.9.2"
+stderrlog = "0.6.0"
+tokio = { version = "1", features = ["full"] }
+sysinfo = "0.36.1"
