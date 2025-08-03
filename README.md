@@ -60,3 +60,8 @@ Reports the rate of outgoing data in KiB/s during the last `mqtt.update-period` 
 ### net_rx
 
 Reports the rate of incoming data in KiB/s during the last `mqtt.update-period` seconds, if `sensors.network` is set.
+
+
+## Credits
+
+Some code is based on https://github.com/cmargiotta/mqtt-system-monitor which has the same purpose, but I couldn't do what I wanted with just Lua scripts.
