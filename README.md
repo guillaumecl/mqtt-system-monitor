@@ -65,3 +65,9 @@ Reports the rate of incoming data in KiB/s during the last `mqtt.update-period` 
 ## Credits
 
 Some code is based on https://github.com/cmargiotta/mqtt-system-monitor which has the same purpose, but I couldn't do what I wanted with just Lua scripts.
+
+[img_crates]: https://img.shields.io/crates/v/mqtt-system-monitor.svg
+[img_doc]: https://img.shields.io/badge/rust-documentation-blue.svg
+
+[crates]: https://crates.io/crates/mqtt-system-monitor
+[doc]: https://docs.rs/mqtt-system-monitor/
