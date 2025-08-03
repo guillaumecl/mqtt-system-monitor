@@ -184,6 +184,8 @@ impl Daemon {
     pub fn registration_message(&self) -> (String, String) {
         let id = &self.config.mqtt.entity;
         let prefix = &self.config.mqtt.registration_prefix;
+        let version = env!("CARGO_PKG_VERSION");
+        let package_name = env!("CARGO_PKG_NAME");
 
         (
             format!("{prefix}/device/{}/config", self.config.mqtt.entity),
@@ -194,8 +196,8 @@ impl Daemon {
     "identifiers": "{id}"
   }},
   "origin": {{
-    "name": "mqtt-system-monitor",
-    "sw_version": "0.1.0"
+    "name": "{package_name}",
+    "sw_version": "{version}"
   }},
   "components": {{
     "cpu_temp": {{
