@@ -63,14 +63,11 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
             .0
             .clone(),
     );
-    conf.sensors.temperature = Some(
-        components
-            .iter()
-            .next()
-            .expect("Should have at least a component to test")
-            .label()
-            .to_string(),
-    );
+    conf.sensors.temperature = components
+        .iter()
+        .next()
+        .map(|c| c.label())
+        .map(|l| l.to_string());
 
     let interface = conf.sensors.network.clone();
     let temp_sensor = conf.sensors.temperature.clone();
@@ -92,7 +89,9 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     // The first call, the transfer rate is not known yet. It can be non zero after some time
     assert_eq!(status.net_rx, None);
     assert_eq!(status.net_tx, None);
-    assert_ne!(status.cpu_temp, None);
+    if temp_sensor.is_some() {
+        assert_ne!(status.cpu_temp, None);
+    }
 
     let status = daemon.update_data();
 
@@ -109,7 +108,9 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     // After a the first call we always have a value, it can be zero if the network interface didn't get used
     assert_ne!(status.net_rx, None);
     assert_ne!(status.net_tx, None);
-    assert_ne!(status.cpu_temp, None);
+    if temp_sensor.is_some() {
+        assert_ne!(status.cpu_temp, None);
+    }
 
     Ok(())
 }
