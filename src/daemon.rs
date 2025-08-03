@@ -113,12 +113,18 @@ impl Daemon {
         (None, None)
     }
 
-    fn update_rate(last_val: &mut Option<u64>, cur: Option<u64>, update_period: u64) -> Option<f64> {
+    fn update_rate(
+        last_val: &mut Option<u64>,
+        cur: Option<u64>,
+        update_period: u64,
+    ) -> Option<f64> {
         let cur = cur?;
         let last = *last_val;
         *last_val = Some(cur);
 
-        if let Some(last) = last && last <= cur {
+        if let Some(last) = last
+            && last <= cur
+        {
             Some(((cur - last) / update_period) as f64 / 1024.0)
         } else {
             None
