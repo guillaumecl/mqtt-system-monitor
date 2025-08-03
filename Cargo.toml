@@ -1,12 +1,18 @@
 [package]
-authors = ["Guillaume Clément <gclement@baobob.org>"]
 name = "mqtt-system-monitor"
-version = "1.0.1"
+description = "Remote System Monitor for Home Assistant with MQTT."
+version = "1.0.2"
 edition = "2024"
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/guillaumecl/mqtt-system-monitor"
+repository = "https://github.com/guillaumecl/mqtt-system-monitor"
+keywords = ["server", "iot"]
+categories = ["command-line-utilities", "network-programming"]
 publish = true
+
+[lib]
+name = "mqtt_system_monitor"
 
 [dependencies]
 log = "0.4.17"

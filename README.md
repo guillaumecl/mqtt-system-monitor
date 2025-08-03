@@ -1,4 +1,4 @@
-# mqtt-system-monitor
+# mqtt-system-monitor  [![][img_crates]][crates] [![][img_doc]][doc]
 
 `mqtt-system-monitor` is a small program that periodically sends reports with MQTT to Home Assistant.
 
