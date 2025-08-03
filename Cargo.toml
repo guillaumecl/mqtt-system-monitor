@@ -5,6 +5,7 @@ version = "1.0.0"
 edition = "2024"
 license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/guillaumecl/mqtt-system-monitor"
 publish = false
 
 [dependencies]

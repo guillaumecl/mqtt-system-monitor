@@ -186,6 +186,7 @@ impl Daemon {
         let prefix = &self.config.mqtt.registration_prefix;
         let version = env!("CARGO_PKG_VERSION");
         let package_name = env!("CARGO_PKG_NAME");
+        let url = env!("CARGO_PKG_HOMEPAGE");
 
         (
             format!("{prefix}/device/{}/config", self.config.mqtt.entity),
@@ -197,7 +198,8 @@ impl Daemon {
   }},
   "origin": {{
     "name": "{package_name}",
-    "sw_version": "{version}"
+    "sw_version": "{version}",
+    "url": "{url}"
   }},
   "components": {{
     "cpu_temp": {{
