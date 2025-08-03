@@ -1,3 +1,4 @@
+use std::fmt;
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]
@@ -9,8 +10,11 @@ pub struct StatusMessage {
     pub net_rx: Option<f64>,
 }
 
-impl StatusMessage {
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(&self).unwrap_or_default()
+impl fmt::Display for StatusMessage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Ok(str) = serde_json::to_string(&self) else {
+            return Err(fmt::Error);
+        };
+        write!(f, "{str}")
     }
 }

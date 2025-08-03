@@ -63,9 +63,7 @@ impl Daemon {
 
     fn select_temp_component(components: Components, temp_name: Option<&str>) -> Option<Component> {
         let mut cmps = Vec::from(components);
-        let Some(temp_label) = temp_name else {
-            return None;
-        };
+        let temp_label = temp_name?;
 
         while let Some(c) = cmps.pop() {
             if c.label() == temp_label {
@@ -85,7 +83,8 @@ impl Daemon {
         if let Some(c) = component {
             c.refresh();
         }
-        let status = StatusMessage {
+
+        StatusMessage {
             cpu_usage: self.system.global_cpu_usage(),
             disk_usage: None,
             cpu_temp: component.as_ref().and_then(|c| c.temperature()),
@@ -99,9 +98,7 @@ impl Daemon {
                 net_rx,
                 self.config.mqtt.update_period,
             ),
-        };
-
-        status
+        }
     }
 
     fn select_network(&mut self) -> (Option<u64>, Option<u64>) {
@@ -117,9 +114,7 @@ impl Daemon {
     }
 
     fn update_rate(last_val: &mut u64, cur: Option<u64>, update_period: u64) -> Option<f64> {
-        let Some(cur) = cur else {
-            return None;
-        };
+        let cur = cur?;
         let last = *last_val;
         *last_val = cur;
 
@@ -143,7 +138,7 @@ impl Daemon {
 
         task::spawn(async move {
             while let Ok(notification) = eventloop.poll().await {
-                trace!("MQTT notification received: {:?}", notification);
+                trace!("MQTT notification received: {notification:?}");
             }
         });
 
@@ -261,10 +256,10 @@ impl Daemon {
     where
         S: Into<String> + std::fmt::Display,
     {
-        debug!("Publishing to topic {} : {}", topic, data);
+        debug!("Publishing to topic {topic} : {data}");
         match client.publish(topic, QoS::AtLeastOnce, false, data).await {
             Err(message) => {
-                error!("MQTT publish error: {}", message);
+                error!("MQTT publish error: {message}");
 
                 Err(message)
             }

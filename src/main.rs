@@ -14,7 +14,7 @@ async fn main() {
     };
 
     let config =
-        configuration::Configuration::load(&config_path).expect("Failed to load configuration");
+        configuration::Configuration::load(config_path).expect("Failed to load configuration");
 
     stderrlog::new()
         .module(module_path!())

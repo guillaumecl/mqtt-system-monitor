@@ -50,7 +50,7 @@ fn hostname() -> String {
 
 impl Configuration {
     pub fn load(path: &str) -> Result<Configuration, Box<dyn Error>> {
-        toml::from_str(std::fs::read_to_string(&path)?.as_str()).map_err(|err| err.into())
+        toml::from_str(std::fs::read_to_string(path)?.as_str()).map_err(|err| err.into())
     }
 }
 
