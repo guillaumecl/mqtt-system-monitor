@@ -19,8 +19,8 @@ pub struct Daemon {
     network: Networks,
     temp_component: Option<Component>,
 
-    last_total_transmitted: u64,
-    last_total_received: u64,
+    last_total_transmitted: Option<u64>,
+    last_total_received: Option<u64>,
 }
 
 impl Daemon {
@@ -55,8 +55,8 @@ impl Daemon {
                 components,
                 config.sensors.temperature.as_deref(),
             ),
-            last_total_transmitted: 0,
-            last_total_received: 0,
+            last_total_transmitted: None,
+            last_total_received: None,
             config,
         }
     }
@@ -113,12 +113,12 @@ impl Daemon {
         (None, None)
     }
 
-    fn update_rate(last_val: &mut u64, cur: Option<u64>, update_period: u64) -> Option<f64> {
+    fn update_rate(last_val: &mut Option<u64>, cur: Option<u64>, update_period: u64) -> Option<f64> {
         let cur = cur?;
         let last = *last_val;
-        *last_val = cur;
+        *last_val = Some(cur);
 
-        if last > 0 && last <= cur {
+        if let Some(last) = last && last <= cur {
             Some(((cur - last) / update_period) as f64 / 1024.0)
         } else {
             None
@@ -280,19 +280,21 @@ mod tests {
 
     #[test]
     fn test_update_rate() {
-        let mut start = 0;
+        let mut start: Option<u64> = None;
 
+        // As long as we don't have any data to send, the start stays at None
         assert_eq!(Daemon::update_rate(&mut start, None, 10), None);
+        assert_eq!(start, None);
 
         // At first iteration we return None because the rate is not known yet
         assert_eq!(Daemon::update_rate(&mut start, Some(10), 10), None);
-        assert_eq!(start, 10);
+        assert_eq!(start, Some(10));
 
         // The total received was increased by 20 KiBytes, divided by the update of 10 is 2 KiBytes/s
         assert_eq!(
             Daemon::update_rate(&mut start, Some(10 + 2 * 1024 * 10), 10),
             Some(2.0)
         );
-        assert_eq!(start, 10 + 2 * 1024 * 10);
+        assert_eq!(start, Some(10 + 2 * 1024 * 10));
     }
 }
