@@ -216,6 +216,7 @@ impl Daemon {
       "name": "{id} CPU usage",
       "platform": "sensor",
       "device_class": null,
+      "icon": "mdi:cpu-64-bit",
       "state_class": "measurement",
       "unit_of_measurement": "%",
       "unique_id": "cpu_usage",
