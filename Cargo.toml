@@ -1,7 +1,7 @@
 [package]
 authors = ["Guillaume Clément <gclement@baobob.org>"]
 name = "mqtt-system-monitor"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 license = "MIT"
 readme = "README.md"

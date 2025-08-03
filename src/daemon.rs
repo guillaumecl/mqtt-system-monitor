@@ -137,10 +137,7 @@ impl Daemon {
         let expire_cycles = 60 / self.config.mqtt.update_period - 1;
         let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
 
-        let topic = format!(
-            "mqtt-system-monitor/{}/state",
-            self.config.mqtt.entity
-        );
+        let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
 
         let (client, mut eventloop) = AsyncClient::new(self.mqtt_config.clone(), 1);
 
