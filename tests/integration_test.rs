@@ -86,7 +86,7 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
         status.cpu_temp, temp_sensor
     );
 
-    // The first call, the transfer rate is not known yet. It can be non zero after some time
+    // The first call, the transfer rate is not known yet. It can be non-zero after some time
     assert_eq!(status.net_rx, None);
     assert_eq!(status.net_tx, None);
     if temp_sensor.is_some() {
@@ -105,7 +105,7 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
         status.cpu_temp, temp_sensor
     );
 
-    // After a the first call we always have a value, it can be zero if the network interface didn't get used
+    // After the first call we always have a value, it can be zero if the network interface didn't get used
     assert_ne!(status.net_rx, None);
     assert_ne!(status.net_tx, None);
     if temp_sensor.is_some() {
