@@ -138,12 +138,16 @@ impl Daemon {
         let entity = self.config.mqtt.entity.as_str();
         self.registration_descriptor
             .add_component(Sensor::CpuUsage, entity);
-        self.registration_descriptor
-            .add_component(Sensor::CpuTemperature, entity);
-        self.registration_descriptor
-            .add_component(Sensor::NetTx, entity);
-        self.registration_descriptor
-            .add_component(Sensor::NetRx, entity);
+        if self.temp_component.is_some() {
+            self.registration_descriptor
+                .add_component(Sensor::CpuTemperature, entity);
+        }
+        if self.config.sensors.network.is_some() {
+            self.registration_descriptor
+                .add_component(Sensor::NetTx, entity);
+            self.registration_descriptor
+                .add_component(Sensor::NetRx, entity);
+        }
     }
 
     pub async fn run(self: &mut Daemon) {

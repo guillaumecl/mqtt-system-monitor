@@ -82,6 +82,14 @@ impl RegistrationDescriptor {
             .insert(sensor.as_str(), DeviceComponent::new(sensor, entity));
     }
 
+    pub fn has_sensor(&self, sensor: Sensor) -> bool {
+        self.components.contains_key(sensor.as_str())
+    }
+
+    pub fn remove_sensor(&mut self, sensor: Sensor) {
+        self.components.remove(sensor.as_str());
+    }
+
     pub fn discovery_topic(&self, prefix: &str) -> String {
         format!("{prefix}/device/{}/config", self.device.name)
     }
