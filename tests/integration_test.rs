@@ -119,13 +119,17 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
 fn test_registration() -> Result<(), Box<dyn Error>> {
     let mut conf = configuration::Configuration::load("conf/mqtt-system-monitor.conf")?;
 
-    conf.mqtt.registration_prefix = "test_prefix".to_string();
+    let prefix = "test_prefix";
     conf.mqtt.entity = "test_entity".to_string();
-    let daemon = Daemon::new(conf);
-    let (topic, message) = daemon.registration_message();
-    assert_eq!(topic, "test_prefix/device/test_entity/config");
+    let mut daemon = Daemon::new(conf);
+    daemon.register_sensors();
+    let descriptor = daemon.registration_descriptor();
+    assert_eq!(
+        descriptor.discovery_topic(prefix),
+        "test_prefix/device/test_entity/config"
+    );
 
-    let json: HashMap<String, Value> = serde_json::from_str(message.as_str())?;
+    let json: HashMap<String, Value> = serde_json::from_str(descriptor.to_string().as_str())?;
     assert_eq!(json["device"]["name"].as_str().unwrap(), "test_entity");
     assert_eq!(
         json["state_topic"].as_str().unwrap(),
@@ -140,7 +144,7 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
         json["components"]["cpu_temp"]["unique_id"]
             .as_str()
             .unwrap(),
-        "cpu_temp"
+        "test_entity_cpu_temp"
     );
     assert_eq!(
         json["components"]["cpu_usage"]["platform"]
@@ -152,7 +156,7 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
         json["components"]["cpu_usage"]["unique_id"]
             .as_str()
             .unwrap(),
-        "cpu_usage"
+        "test_entity_cpu_usage"
     );
     assert_eq!(
         json["components"]["net_rx"]["platform"].as_str().unwrap(),
@@ -160,7 +164,7 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     );
     assert_eq!(
         json["components"]["net_rx"]["unique_id"].as_str().unwrap(),
-        "net_rx"
+        "test_entity_net_rx"
     );
     assert_eq!(
         json["components"]["net_tx"]["platform"].as_str().unwrap(),
@@ -168,7 +172,7 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     );
     assert_eq!(
         json["components"]["net_tx"]["unique_id"].as_str().unwrap(),
-        "net_tx"
+        "test_entity_net_tx"
     );
 
     Ok(())

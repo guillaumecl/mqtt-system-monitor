@@ -1,4 +1,5 @@
 use crate::configuration::Configuration;
+use crate::home_assistant::{RegistrationDescriptor, Sensor};
 use crate::status::StatusMessage;
 use log::{debug, error, info, trace};
 use rumqttc::{AsyncClient, ClientError, MqttOptions, QoS};
@@ -12,6 +13,7 @@ use tokio::time::sleep;
 pub struct Daemon {
     config: Configuration,
     mqtt_config: MqttOptions,
+    registration_descriptor: RegistrationDescriptor,
 
     stop: AtomicBool,
 
@@ -49,6 +51,7 @@ impl Daemon {
         Daemon {
             mqtt_config,
             stop: AtomicBool::new(false),
+            registration_descriptor: RegistrationDescriptor::new(&config.mqtt.entity),
             system,
             network,
             temp_component: Self::select_temp_component(
@@ -131,6 +134,18 @@ impl Daemon {
         }
     }
 
+    pub fn register_sensors(&mut self) {
+        let entity = self.config.mqtt.entity.as_str();
+        self.registration_descriptor
+            .add_component(Sensor::CpuUsage, entity);
+        self.registration_descriptor
+            .add_component(Sensor::CpuTemperature, entity);
+        self.registration_descriptor
+            .add_component(Sensor::NetTx, entity);
+        self.registration_descriptor
+            .add_component(Sensor::NetRx, entity);
+    }
+
     pub async fn run(self: &mut Daemon) {
         let mut cycles_counter = 0;
         let mut register: bool;
@@ -139,6 +154,7 @@ impl Daemon {
         let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
 
         let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
+        self.register_sensors();
 
         let (client, mut eventloop) = AsyncClient::new(self.mqtt_config.clone(), 1);
 
@@ -159,11 +175,16 @@ impl Daemon {
             }
 
             if register {
-                let registration_message = self.registration_message();
+                let prefix = &self.config.mqtt.registration_prefix;
+                let descriptor = self.registration_descriptor();
 
-                if Daemon::publish(&client, registration_message.0, registration_message.1)
-                    .await
-                    .is_err()
+                if Daemon::publish(
+                    &client,
+                    descriptor.discovery_topic(prefix),
+                    descriptor.to_string(),
+                )
+                .await
+                .is_err()
                 {
                     break;
                 };
@@ -179,83 +200,8 @@ impl Daemon {
         }
     }
 
-    pub fn registration_message(&self) -> (String, String) {
-        let id = &self.config.mqtt.entity;
-        let prefix = &self.config.mqtt.registration_prefix;
-        let version = env!("CARGO_PKG_VERSION");
-        let package_name = env!("CARGO_PKG_NAME");
-        let url = env!("CARGO_PKG_HOMEPAGE");
-
-        (
-            format!("{prefix}/device/{}/config", self.config.mqtt.entity),
-            format!(
-                r#"{{
-  "device": {{
-    "name": "{id}",
-    "identifiers": "{id}"
-  }},
-  "origin": {{
-    "name": "{package_name}",
-    "sw_version": "{version}",
-    "url": "{url}"
-  }},
-  "components": {{
-    "cpu_temp": {{
-      "name": "{id} CPU temperature",
-      "platform": "sensor",
-      "device_class": "temperature",
-      "state_class": "measurement",
-      "unit_of_measurement": "°C",
-      "unique_id": "cpu_temp",
-      "value_template": "{{{{ value_json.cpu_temp }}}}",
-      "expire_after": 60
-    }},
-    "cpu_usage": {{
-      "name": "{id} CPU usage",
-      "platform": "sensor",
-      "device_class": null,
-      "icon": "mdi:cpu-64-bit",
-      "state_class": "measurement",
-      "unit_of_measurement": "%",
-      "unique_id": "cpu_usage",
-      "value_template": "{{{{ value_json.cpu_usage }}}}",
-      "expire_after": 60
-    }},
-    "net_rx": {{
-      "name": "{id} Network RX rate",
-      "platform": "sensor",
-      "device_class": "data_rate",
-      "state_class": "measurement",
-      "unit_of_measurement": "KiB/s",
-      "unique_id": "net_rx",
-      "value_template": "{{{{ value_json.net_rx }}}}",
-      "expire_after": 60
-    }},
-    "net_tx": {{
-      "name": "{id} Network TX rate",
-      "platform": "sensor",
-      "device_class": "data_rate",
-      "state_class": "measurement",
-      "unit_of_measurement": "KiB/s",
-      "unique_id": "net_tx",
-      "value_template": "{{{{ value_json.net_tx }}}}",
-      "expire_after": 60
-    }},
-    "disk_usage": {{
-      "name": "{id} Disk usage",
-      "platform": "sensor",
-      "device_class": "data_size",
-      "state_class": "measurement",
-      "unit_of_measurement": "B",
-      "unique_id": "disk_usage",
-      "value_template": "{{{{ value_json.disk_usage }}}}",
-      "expire_after": 60
-    }}
-  }},
-  "state_topic": "mqtt-system-monitor/{id}/state"
-}}"#
-            ),
-        )
+    pub fn registration_descriptor(&self) -> &RegistrationDescriptor {
+        &self.registration_descriptor
     }
 
     async fn publish<S>(client: &AsyncClient, topic: S, data: String) -> Result<(), ClientError>
