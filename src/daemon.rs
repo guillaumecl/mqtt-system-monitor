@@ -5,7 +5,8 @@ use log::{debug, error, info, trace};
 use rumqttc::{AsyncClient, ClientError, MqttOptions, QoS};
 use std::error::Error;
 use sysinfo::{
-    Component, Components, CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System,
+    Component, Components, CpuRefreshKind, MemoryRefreshKind, NetworkData, Networks, RefreshKind,
+    System,
 };
 use tokio::signal::unix::SignalKind;
 use tokio::task;
@@ -98,17 +99,18 @@ impl Daemon {
         }
     }
 
-    /// Selects the current network values according to the configured interface and returns a tuple (`transmitted`, `received`)
-    fn select_network(&mut self) -> (Option<u64>, Option<u64>) {
-        if let Some(network) = &self.config.sensors.network.as_deref() {
-            for (interface, net) in &self.network {
-                if network == interface {
-                    return (Some(net.transmitted()), Some(net.received()));
-                }
-            }
-        };
+    fn select_interface(&self) -> Option<&NetworkData> {
+        let network = self.config.sensors.network.as_deref()?;
 
-        (None, None)
+        self.network.iter().find(|n| n.0 == network).map(|n| n.1)
+    }
+
+    /// Selects the current network values according to the configured interface and returns a tuple (`transmitted`, `received`)
+    fn select_network(&self) -> (Option<u64>, Option<u64>) {
+        match self.select_interface() {
+            Some(interface) => (Some(interface.transmitted()), Some(interface.received())),
+            None => (None, None),
+        }
     }
 
     fn rate(diff: Option<u64>, update_period: u64) -> Option<f64> {
