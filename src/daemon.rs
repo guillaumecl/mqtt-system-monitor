@@ -58,15 +58,10 @@ impl Daemon {
     }
 
     fn select_temp_component(components: Components, temp_name: Option<&str>) -> Option<Component> {
-        let mut cmps = Vec::from(components);
         let temp_label = temp_name?;
-
-        while let Some(c) = cmps.pop() {
-            if c.label() == temp_label {
-                return Some(c);
-            }
-        }
-        None
+        Vec::from(components)
+            .into_iter()
+            .find(|c| c.label() == temp_label)
     }
 
     pub fn update_data(self: &mut Daemon) -> StatusMessage {
