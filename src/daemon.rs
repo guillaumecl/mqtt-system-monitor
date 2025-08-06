@@ -1,3 +1,4 @@
+use std::error::Error;
 use crate::configuration::Configuration;
 use crate::home_assistant::{RegistrationDescriptor, Sensor};
 use crate::status::StatusMessage;
@@ -151,58 +152,50 @@ impl Daemon {
     }
 
     pub async fn run(self: &mut Daemon) {
-        let mut cycles_counter = 0;
-        let mut register: bool;
-
-        let expire_cycles = 60 / self.config.mqtt.update_period - 1;
-        let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
-
-        let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
         self.register_sensors();
 
         let (client, mut eventloop) = AsyncClient::new(self.mqtt_config.clone(), 1);
 
-        task::spawn(async move {
+        let event_loop = task::spawn(async move {
             while let Ok(notification) = eventloop.poll().await {
                 trace!("MQTT notification received: {notification:?}");
             }
         });
 
+        self.main_loop(client).await.unwrap_or_else(|e| {
+            error!("MQTT main loop failed: {e}");
+        });
+        event_loop.abort();
+    }
+
+
+    async fn main_loop(self: &mut Daemon, client: AsyncClient) -> Result<(), Box<dyn Error>> {
+        let mut cycles_counter = 0;
+
+        let expire_cycles = 60 / self.config.mqtt.update_period - 1;
+        let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
+
+        let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
         while !self.stop.load(Ordering::Relaxed) {
-            register = cycles_counter == 0;
-
-            if Daemon::publish(&client, &topic, self.update_data().to_string())
-                .await
-                .is_err()
-            {
-                break;
-            }
-
-            if register {
+            if cycles_counter == 0 {
                 let prefix = &self.config.mqtt.registration_prefix;
                 let descriptor = self.registration_descriptor();
 
-                if Daemon::publish(
+                Daemon::publish(
                     &client,
                     descriptor.discovery_topic(prefix),
                     descriptor.to_string(),
-                )
-                .await
-                .is_err()
-                {
-                    break;
-                };
+                ).await?;
             }
+            cycles_counter = (cycles_counter + 1) % expire_cycles;
 
-            if cycles_counter == expire_cycles {
-                cycles_counter = 0;
-            } else {
-                cycles_counter += 1;
-            }
+            Daemon::publish(&client, &topic, self.update_data().to_string()).await?;
 
             sleep(sleep_period).await;
         }
+        Ok(())
     }
+
 
     pub fn registration_descriptor(&self) -> &RegistrationDescriptor {
         &self.registration_descriptor
@@ -213,14 +206,7 @@ impl Daemon {
         S: Into<String> + std::fmt::Display,
     {
         debug!("Publishing to topic {topic} : {data}");
-        match client.publish(topic, QoS::AtLeastOnce, false, data).await {
-            Err(message) => {
-                error!("MQTT publish error: {message}");
-
-                Err(message)
-            }
-            _ => Ok(()),
-        }
+        client.publish(topic, QoS::AtLeastOnce, false, data).await
     }
 }
 
