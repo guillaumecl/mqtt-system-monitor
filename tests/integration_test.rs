@@ -98,9 +98,9 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
         status.cpu_temp, temp_sensor
     );
 
-    // The first call, the transfer rate is not known yet. It can be non-zero after some time
-    assert_eq!(status.net_rx, None);
-    assert_eq!(status.net_tx, None);
+    // The first call, the transfer rate is always at 0. It can be non-zero after some time
+    assert_eq!(status.net_rx, Some(0.0));
+    assert_eq!(status.net_tx, Some(0.0));
     if temp_sensor.is_some() {
         assert_ne!(status.cpu_temp, None);
     }

@@ -19,9 +19,6 @@ pub struct Daemon {
     system: System,
     network: Networks,
     temp_component: Option<Component>,
-
-    last_total_transmitted: Option<u64>,
-    last_total_received: Option<u64>,
 }
 
 impl Daemon {
@@ -56,8 +53,6 @@ impl Daemon {
                 components,
                 config.sensors.temperature.as_deref(),
             ),
-            last_total_transmitted: None,
-            last_total_received: None,
             config,
         }
     }
@@ -89,16 +84,8 @@ impl Daemon {
             cpu_usage: self.system.global_cpu_usage(),
             disk_usage: None,
             cpu_temp: component.as_ref().and_then(|c| c.temperature()),
-            net_tx: Self::update_rate(
-                &mut self.last_total_transmitted,
-                net_tx,
-                self.config.mqtt.update_period,
-            ),
-            net_rx: Self::update_rate(
-                &mut self.last_total_received,
-                net_rx,
-                self.config.mqtt.update_period,
-            ),
+            net_tx: Self::rate(net_tx, self.config.mqtt.update_period),
+            net_rx: Self::rate(net_rx, self.config.mqtt.update_period),
         }
     }
 
@@ -106,7 +93,7 @@ impl Daemon {
         if let Some(network) = &self.config.sensors.network.as_deref() {
             for (interface, net) in &self.network {
                 if network == interface {
-                    return (Some(net.total_transmitted()), Some(net.total_received()));
+                    return (Some(net.transmitted()), Some(net.received()));
                 }
             }
         };
@@ -114,22 +101,8 @@ impl Daemon {
         (None, None)
     }
 
-    fn update_rate(
-        last_val: &mut Option<u64>,
-        cur: Option<u64>,
-        update_period: u64,
-    ) -> Option<f64> {
-        let cur = cur?;
-        let last = *last_val;
-        *last_val = Some(cur);
-
-        if let Some(last) = last
-            && last <= cur
-        {
-            Some(((cur - last) / update_period) as f64 / 1024.0)
-        } else {
-            None
-        }
+    fn rate(diff: Option<u64>, update_period: u64) -> Option<f64> {
+        Some((diff? / update_period) as f64 / 1024.0)
     }
 
     pub fn register_sensors(&mut self) {
@@ -220,22 +193,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_update_rate() {
-        let mut start: Option<u64> = None;
-
+    fn test_rate() {
         // As long as we don't have any data to send, the start stays at None
-        assert_eq!(Daemon::update_rate(&mut start, None, 10), None);
-        assert_eq!(start, None);
+        assert_eq!(Daemon::rate(None, 10), None);
 
-        // At first iteration we return None because the rate is not known yet
-        assert_eq!(Daemon::update_rate(&mut start, Some(10), 10), None);
-        assert_eq!(start, Some(10));
+        assert_eq!(Daemon::rate(Some(1024), 1), Some(1.0));
 
         // The total received was increased by 20 KiBytes, divided by the update of 10 is 2 KiBytes/s
-        assert_eq!(
-            Daemon::update_rate(&mut start, Some(10 + 2 * 1024 * 10), 10),
-            Some(2.0)
-        );
-        assert_eq!(start, Some(10 + 2 * 1024 * 10));
+        assert_eq!(Daemon::rate(Some(2 * 1024 * 10), 10), Some(2.0));
     }
 }
