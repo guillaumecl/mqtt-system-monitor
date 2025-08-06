@@ -4,6 +4,10 @@
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Allow cleanup when interrupting with Ctrl-C or SIGINT. This will allow to send end messages later
+
 ## [1.0.5] - 2025-08-05
 
 ### Added

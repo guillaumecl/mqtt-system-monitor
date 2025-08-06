@@ -1,13 +1,13 @@
-use std::error::Error;
 use crate::configuration::Configuration;
 use crate::home_assistant::{RegistrationDescriptor, Sensor};
 use crate::status::StatusMessage;
 use log::{debug, error, info, trace};
 use rumqttc::{AsyncClient, ClientError, MqttOptions, QoS};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::error::Error;
 use sysinfo::{
     Component, Components, CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System,
 };
+use tokio::signal::unix::SignalKind;
 use tokio::task;
 use tokio::time::sleep;
 
@@ -15,8 +15,6 @@ pub struct Daemon {
     config: Configuration,
     mqtt_config: MqttOptions,
     registration_descriptor: RegistrationDescriptor,
-
-    stop: AtomicBool,
 
     system: System,
     network: Networks,
@@ -51,7 +49,6 @@ impl Daemon {
 
         Daemon {
             mqtt_config,
-            stop: AtomicBool::new(false),
             registration_descriptor: RegistrationDescriptor::new(&config.mqtt.entity),
             system,
             network,
@@ -156,7 +153,7 @@ impl Daemon {
 
         let (client, mut eventloop) = AsyncClient::new(self.mqtt_config.clone(), 1);
 
-        let event_loop = task::spawn(async move {
+        task::spawn(async move {
             while let Ok(notification) = eventloop.poll().await {
                 trace!("MQTT notification received: {notification:?}");
             }
@@ -165,18 +162,17 @@ impl Daemon {
         self.main_loop(client).await.unwrap_or_else(|e| {
             error!("MQTT main loop failed: {e}");
         });
-        event_loop.abort();
     }
-
 
     async fn main_loop(self: &mut Daemon, client: AsyncClient) -> Result<(), Box<dyn Error>> {
         let mut cycles_counter = 0;
 
         let expire_cycles = 60 / self.config.mqtt.update_period - 1;
         let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
+        let mut terminal_signal = tokio::signal::unix::signal(SignalKind::terminate())?;
 
         let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
-        while !self.stop.load(Ordering::Relaxed) {
+        loop {
             if cycles_counter == 0 {
                 let prefix = &self.config.mqtt.registration_prefix;
                 let descriptor = self.registration_descriptor();
@@ -185,17 +181,26 @@ impl Daemon {
                     &client,
                     descriptor.discovery_topic(prefix),
                     descriptor.to_string(),
-                ).await?;
+                )
+                .await?;
             }
             cycles_counter = (cycles_counter + 1) % expire_cycles;
 
             Daemon::publish(&client, &topic, self.update_data().to_string()).await?;
 
-            sleep(sleep_period).await;
+            tokio::select! {
+                _ = sleep(sleep_period) => {},
+                _ = tokio::signal::ctrl_c() => {
+                    debug!("Ctrl-C received");
+                    return Ok(())
+                },
+                _ = terminal_signal.recv() => {
+                    debug!("Interrupt received");
+                    return Ok(())
+                }
+            };
         }
-        Ok(())
     }
-
 
     pub fn registration_descriptor(&self) -> &RegistrationDescriptor {
         &self.registration_descriptor
@@ -207,12 +212,6 @@ impl Daemon {
     {
         debug!("Publishing to topic {topic} : {data}");
         client.publish(topic, QoS::AtLeastOnce, false, data).await
-    }
-}
-
-impl Drop for Daemon {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed)
     }
 }
 
