@@ -139,28 +139,15 @@ impl Daemon {
 
     async fn main_loop(self: &mut Daemon, client: AsyncClient) -> Result<(), Box<dyn Error>> {
         let mut cycles_counter = 0;
-
         let expire_cycles = 60 / self.config.mqtt.update_period - 1;
         let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
         let mut terminal_signal = tokio::signal::unix::signal(SignalKind::terminate())?;
-
         let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
+
         loop {
-            if cycles_counter == 0 {
-                let prefix = &self.config.mqtt.registration_prefix;
-                let descriptor = self.registration_descriptor();
-
-                Daemon::publish(
-                    &client,
-                    descriptor.discovery_topic(prefix),
-                    descriptor.to_string(),
-                )
+            self.publish_update(&client, cycles_counter == 0, topic.as_str())
                 .await?;
-            }
             cycles_counter = (cycles_counter + 1) % expire_cycles;
-
-            Daemon::publish(&client, &topic, self.update_data().to_string()).await?;
-
             tokio::select! {
                 _ = sleep(sleep_period) => {},
                 _ = tokio::signal::ctrl_c() => {
@@ -173,6 +160,29 @@ impl Daemon {
                 }
             };
         }
+    }
+
+    async fn publish_update(
+        self: &mut Daemon,
+        client: &AsyncClient,
+        register: bool,
+        topic: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        if register {
+            let prefix = &self.config.mqtt.registration_prefix;
+            let descriptor = self.registration_descriptor();
+
+            Daemon::publish(
+                client,
+                descriptor.discovery_topic(prefix),
+                descriptor.to_string(),
+            )
+            .await?;
+        }
+
+        Daemon::publish(client, topic, self.update_data().to_string()).await?;
+
+        Ok(())
     }
 
     pub fn registration_descriptor(&self) -> &RegistrationDescriptor {
