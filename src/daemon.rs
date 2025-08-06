@@ -11,6 +11,7 @@ use tokio::signal::unix::SignalKind;
 use tokio::task;
 use tokio::time::sleep;
 
+/// Daemon that periodically sends reports to MQTT
 pub struct Daemon {
     config: Configuration,
     mqtt_config: MqttOptions,
@@ -22,6 +23,16 @@ pub struct Daemon {
 }
 
 impl Daemon {
+    /// Constructs a daemon from the specified configuration
+    ///
+    /// ```
+    /// use mqtt_system_monitor::{Configuration, Daemon};
+    ///
+    /// let config = Configuration::load("conf/mqtt-system-monitor.conf").expect("Cannot load configuration");
+    /// let mut daemon = Daemon::new(config);
+    ///
+    /// // later, run daemon.run() in an async function
+    /// ```
     pub fn new(config: Configuration) -> Daemon {
         info!("Daemon for {} starting", config.mqtt.entity);
 
@@ -57,6 +68,9 @@ impl Daemon {
         }
     }
 
+    /// Selects the temperature component that corresponds to the configured sensor
+    ///
+    /// Returns `None` if not configured or if nothing is found.
     fn select_temp_component(components: Components, temp_name: Option<&str>) -> Option<Component> {
         let temp_label = temp_name?;
         Vec::from(components)
@@ -64,6 +78,7 @@ impl Daemon {
             .find(|c| c.label() == temp_label)
     }
 
+    /// Updates the data and returns a status message
     pub fn update_data(self: &mut Daemon) -> StatusMessage {
         self.system.refresh_cpu_usage();
 
@@ -77,13 +92,13 @@ impl Daemon {
 
         StatusMessage {
             cpu_usage: self.system.global_cpu_usage(),
-            disk_usage: None,
             cpu_temp: component.as_ref().and_then(|c| c.temperature()),
             net_tx: Self::rate(net_tx, self.config.mqtt.update_period),
             net_rx: Self::rate(net_rx, self.config.mqtt.update_period),
         }
     }
 
+    /// Selects the current network values according to the configured interface and returns a tuple (`transmitted`, `received`)
     fn select_network(&mut self) -> (Option<u64>, Option<u64>) {
         if let Some(network) = &self.config.sensors.network.as_deref() {
             for (interface, net) in &self.network {
@@ -100,6 +115,7 @@ impl Daemon {
         Some((diff? / update_period) as f64 / 1024.0)
     }
 
+    /// Registers the configured sensors in the descriptor
     pub fn register_sensors(&mut self) {
         let entity = self.config.mqtt.entity.as_str();
         self.registration_descriptor
@@ -116,6 +132,7 @@ impl Daemon {
         }
     }
 
+    /// Runs the main loop that periodically sends the MQTT events
     pub async fn run(self: &mut Daemon) {
         self.register_sensors();
 
@@ -132,6 +149,7 @@ impl Daemon {
         });
     }
 
+    /// Single iteration of the main loop
     async fn main_loop(self: &mut Daemon, client: AsyncClient) -> Result<(), Box<dyn Error>> {
         let mut cycles_counter = 0;
         let expire_cycles = 60 / self.config.mqtt.update_period - 1;
@@ -157,6 +175,7 @@ impl Daemon {
         }
     }
 
+    // Publish an update to MQTT
     async fn publish_update(
         self: &mut Daemon,
         client: &AsyncClient,
@@ -180,10 +199,12 @@ impl Daemon {
         Ok(())
     }
 
+    /// Returns the registration descriptor
     pub fn registration_descriptor(&self) -> &RegistrationDescriptor {
         &self.registration_descriptor
     }
 
+    // Publish an message to MQTT
     async fn publish<S>(client: &AsyncClient, topic: S, data: String) -> Result<(), ClientError>
     where
         S: Into<String> + std::fmt::Display,
