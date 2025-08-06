@@ -119,18 +119,14 @@ impl Daemon {
 
     /// Registers the configured sensors in the descriptor
     pub fn register_sensors(&mut self) {
-        let entity = self.config.mqtt.entity.as_str();
-        self.registration_descriptor
-            .add_component(Sensor::CpuUsage, entity);
+        self.registration_descriptor.add_component(Sensor::CpuUsage);
         if self.temp_component.is_some() {
             self.registration_descriptor
-                .add_component(Sensor::CpuTemperature, entity);
+                .add_component(Sensor::CpuTemperature);
         }
         if self.config.sensors.network.is_some() {
-            self.registration_descriptor
-                .add_component(Sensor::NetTx, entity);
-            self.registration_descriptor
-                .add_component(Sensor::NetRx, entity);
+            self.registration_descriptor.add_component(Sensor::NetTx);
+            self.registration_descriptor.add_component(Sensor::NetRx);
         }
     }
 

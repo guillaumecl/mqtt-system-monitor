@@ -84,9 +84,9 @@ pub struct DeviceComponent {
     ///
     /// See <https://www.home-assistant.io/integrations/sensor#device-class> for possible values here
     device_class: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
 
     /// An icon for certain sensors that are too generic (for example when `device_class` is `None`)
+    #[serde(skip_serializing_if = "Option::is_none")]
     icon: Option<&'static str>,
 
     /// Describes how Home Assistant stores the data. It is usually `measurement`
@@ -116,7 +116,7 @@ impl RegistrationDescriptor {
     /// let mut descriptor = RegistrationDescriptor::new("test_entity");
     /// assert!(!descriptor.has_sensor(Sensor::CpuUsage));
     ///
-    /// descriptor.add_component(Sensor::CpuUsage, "test_entity");
+    /// descriptor.add_component(Sensor::CpuUsage);
     /// assert!(descriptor.has_sensor(Sensor::CpuUsage));
     /// ```
     pub fn new(entity: &str) -> RegistrationDescriptor {
@@ -149,12 +149,14 @@ impl RegistrationDescriptor {
     /// let mut descriptor = RegistrationDescriptor::new("test_entity");
     /// assert!(!descriptor.has_sensor(Sensor::CpuUsage));
     ///
-    /// descriptor.add_component(Sensor::CpuUsage, "test_entity");
+    /// descriptor.add_component(Sensor::CpuUsage);
     /// assert!(descriptor.has_sensor(Sensor::CpuUsage));
     /// ```
-    pub fn add_component(&mut self, sensor: Sensor, entity: &str) {
-        self.components
-            .insert(sensor.as_str(), DeviceComponent::new(sensor, entity));
+    pub fn add_component(&mut self, sensor: Sensor) {
+        self.components.insert(
+            sensor.as_str(),
+            DeviceComponent::new(sensor, self.device.name.as_str()),
+        );
     }
 
     /// Returns `true` if the sensor is configured
@@ -264,10 +266,10 @@ mod tests {
         let entity = "test_entity";
         let mut descriptor = RegistrationDescriptor::new(entity);
 
-        descriptor.add_component(Sensor::CpuUsage, entity);
-        descriptor.add_component(Sensor::CpuTemperature, entity);
-        descriptor.add_component(Sensor::NetTx, entity);
-        descriptor.add_component(Sensor::NetRx, entity);
+        descriptor.add_component(Sensor::CpuUsage);
+        descriptor.add_component(Sensor::CpuTemperature);
+        descriptor.add_component(Sensor::NetTx);
+        descriptor.add_component(Sensor::NetRx);
 
         assert_eq!(descriptor.device.name, "test_entity");
         assert_eq!(descriptor.device.identifiers, "test_entity");
