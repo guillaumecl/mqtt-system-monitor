@@ -11,6 +11,9 @@ pub enum Sensor {
     /// Sends the CPU temperature in °C
     CpuTemperature,
 
+    /// Sends the memory usage in %
+    MemoryUsage,
+
     /// Sends the download network rate in KiB/s
     NetRx,
 
@@ -24,6 +27,7 @@ impl Sensor {
         match self {
             Sensor::CpuUsage => "cpu_usage",
             Sensor::CpuTemperature => "cpu_temp",
+            Sensor::MemoryUsage => "memory_usage",
             Sensor::NetRx => "net_rx",
             Sensor::NetTx => "net_tx",
         }
@@ -191,6 +195,7 @@ impl DeviceComponent {
         match sensor {
             Sensor::CpuTemperature => Self::cpu_temperature(entity),
             Sensor::CpuUsage => Self::cpu_usage(entity),
+            Sensor::MemoryUsage => Self::memory_usage(entity),
             Sensor::NetRx => Self::net_rx(entity),
             Sensor::NetTx => Self::net_tx(entity),
         }
@@ -222,6 +227,21 @@ impl DeviceComponent {
             unit_of_measurement: "%",
             unique_id: format!("{entity}_cpu_usage"),
             value_template: "{{ value_json.cpu_usage }}",
+            expire_after: 60,
+        }
+    }
+
+    /// Manually creates a Memory usage sensor
+    fn memory_usage(entity: &str) -> DeviceComponent {
+        DeviceComponent {
+            name: "Memory usage",
+            platform: "sensor",
+            device_class: None,
+            state_class: "measurement",
+            icon: Some("mdi:memory"),
+            unit_of_measurement: "%",
+            unique_id: format!("{entity}_memory_usage"),
+            value_template: "{{ value_json.memory_usage }}",
             expire_after: 60,
         }
     }

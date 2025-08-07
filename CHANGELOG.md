@@ -7,6 +7,7 @@
 ### Added
 
 - Documentation for the library
+- Memory usage sensor
 
 ### Fixed
 

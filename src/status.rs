@@ -12,6 +12,9 @@ pub struct StatusMessage {
     /// CPU temperature in °C
     pub cpu_temp: Option<f32>,
 
+    /// Memory usage in %
+    pub memory_usage: f32,
+
     /// Net TX rate in KiB/s
     pub net_tx: Option<f64>,
 

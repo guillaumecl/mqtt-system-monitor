@@ -53,6 +53,10 @@ Reports CPU Temperature in °C, if `sensors.temperature` is set
 
 Reports the current total CPU usage in %.
 
+### memory_usage
+
+Reports the current memory usage in %.
+
 ### net_tx
 
 Reports the rate of outgoing data in KiB/s during the last `mqtt.update-period` seconds, if `sensors.network` is set.

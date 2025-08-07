@@ -82,6 +82,7 @@ impl Daemon {
     /// Updates the data and returns a status message
     pub fn update_data(self: &mut Daemon) -> StatusMessage {
         self.system.refresh_cpu_usage();
+        self.system.refresh_memory();
 
         self.network.refresh(true);
         let (net_tx, net_rx) = self.select_network();
@@ -93,6 +94,8 @@ impl Daemon {
 
         StatusMessage {
             cpu_usage: self.system.global_cpu_usage(),
+            memory_usage: 100.0
+                * (self.system.used_memory() as f32 / self.system.total_memory() as f32),
             cpu_temp: component.as_ref().and_then(|c| c.temperature()),
             net_tx: Self::rate(net_tx, self.config.mqtt.update_period),
             net_rx: Self::rate(net_rx, self.config.mqtt.update_period),
@@ -120,6 +123,8 @@ impl Daemon {
     /// Registers the configured sensors in the descriptor
     pub fn register_sensors(&mut self) {
         self.registration_descriptor.add_component(Sensor::CpuUsage);
+        self.registration_descriptor
+            .add_component(Sensor::MemoryUsage);
         if self.temp_component.is_some() {
             self.registration_descriptor
                 .add_component(Sensor::CpuTemperature);

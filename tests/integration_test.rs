@@ -198,6 +198,12 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
         "test_entity_cpu_usage"
     );
     assert_eq!(
+        json["components"]["memory_usage"]["unique_id"]
+            .as_str()
+            .unwrap(),
+        "test_entity_memory_usage"
+    );
+    assert_eq!(
         json["components"]["net_rx"]["platform"].as_str().unwrap(),
         "sensor"
     );
