@@ -4,6 +4,8 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [1.1.0] - 2025-08-07
+
 ### Added
 
 - Documentation for the library
@@ -30,6 +32,7 @@ Initial version
 
 
 <!-- next-url -->
-[Unreleased]: https://github.com/guillaumecl/mqtt-system-monitor/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/guillaumecl/mqtt-system-monitor/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/guillaumecl/mqtt-system-monitor/compare/v1.0.5...v1.1.0
 [1.0.5]: https://github.com/guillaumecl/mqtt-system-monitor/compare/v1.0.3...v1.0.5
 [1.0.3]: https://github.com/guillaumecl/mqtt-system-monitor/releases/tag/v1.0.3
