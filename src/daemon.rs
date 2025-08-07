@@ -81,14 +81,26 @@ impl Daemon {
 
     /// Updates the data and returns a status message
     pub fn update_data(self: &mut Daemon) -> StatusMessage {
-        self.system.refresh_cpu_usage();
-        self.system.refresh_memory();
+        if self.registration_descriptor.has_sensor(Sensor::CpuUsage) {
+            self.system.refresh_cpu_usage();
+        }
+        if self.registration_descriptor.has_sensor(Sensor::MemoryUsage) {
+            self.system.refresh_memory();
+        }
 
-        self.network.refresh(true);
+        if self.registration_descriptor.has_sensor(Sensor::NetTx)
+            || self.registration_descriptor.has_sensor(Sensor::NetRx)
+        {
+            self.network.refresh(true);
+        }
         let (net_tx, net_rx) = self.select_network();
 
         let component = &mut self.temp_component;
-        if let Some(c) = component {
+        if self
+            .registration_descriptor
+            .has_sensor(Sensor::CpuTemperature)
+            && let Some(c) = component
+        {
             c.refresh();
         }
 
