@@ -105,9 +105,11 @@ impl Daemon {
         }
 
         StatusMessage {
-            cpu_usage: self.system.global_cpu_usage(),
-            memory_usage: 100.0
-                * (self.system.used_memory() as f32 / self.system.total_memory() as f32),
+            available: "ON",
+            cpu_usage: Some(self.system.global_cpu_usage()),
+            memory_usage: Some(
+                100.0 * (self.system.used_memory() as f32 / self.system.total_memory() as f32),
+            ),
             cpu_temp: component.as_ref().and_then(|c| c.temperature()),
             net_tx: Self::rate(net_tx, self.config.mqtt.update_period),
             net_rx: Self::rate(net_rx, self.config.mqtt.update_period),
@@ -134,6 +136,8 @@ impl Daemon {
 
     /// Registers the configured sensors in the descriptor
     pub fn register_sensors(&mut self) {
+        self.registration_descriptor
+            .add_component(Sensor::Available);
         self.registration_descriptor.add_component(Sensor::CpuUsage);
         self.registration_descriptor
             .add_component(Sensor::MemoryUsage);
@@ -151,10 +155,10 @@ impl Daemon {
     pub async fn run(self: &mut Daemon) {
         self.register_sensors();
 
-        let (client, mut eventloop) = AsyncClient::new(self.mqtt_config.clone(), 1);
+        let (client, mut event_loop) = AsyncClient::new(self.mqtt_config.clone(), 1);
 
         task::spawn(async move {
-            while let Ok(notification) = eventloop.poll().await {
+            while let Ok(notification) = event_loop.poll().await {
                 trace!("MQTT notification received: {notification:?}");
             }
         });
@@ -172,44 +176,43 @@ impl Daemon {
         let mut terminal_signal = tokio::signal::unix::signal(SignalKind::terminate())?;
         let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
 
+        self.publish_registration(&client).await?;
+        sleep(std::time::Duration::from_secs(1)).await;
+
         loop {
-            self.publish_update(&client, cycles_counter == 0, topic.as_str())
-                .await?;
             cycles_counter = (cycles_counter + 1) % expire_cycles;
+            if cycles_counter == 0 {
+                self.publish_registration(&client).await?;
+            }
+
+            self.publish_update(&client, topic.as_str()).await?;
             tokio::select! {
                 _ = sleep(sleep_period) => {},
                 _ = tokio::signal::ctrl_c() => {
                     debug!("Ctrl-C received");
-                    return Ok(())
+                    break;
                 },
                 _ = terminal_signal.recv() => {
                     debug!("Interrupt received");
-                    return Ok(())
+                    break;
                 }
-            };
+            }
         }
+
+        Daemon::publish(&client, topic, &StatusMessage::off().to_string()).await?;
+
+        sleep(std::time::Duration::from_secs(1)).await;
+
+        Ok(())
     }
 
     // Publish an update to MQTT
     async fn publish_update(
         self: &mut Daemon,
         client: &AsyncClient,
-        register: bool,
         topic: &str,
     ) -> Result<(), Box<dyn Error>> {
-        if register {
-            let prefix = &self.config.mqtt.registration_prefix;
-            let descriptor = self.registration_descriptor();
-
-            Daemon::publish(
-                client,
-                descriptor.discovery_topic(prefix),
-                descriptor.to_string(),
-            )
-            .await?;
-        }
-
-        Daemon::publish(client, topic, self.update_data().to_string()).await?;
+        Daemon::publish(client, topic, &self.update_data().to_string()).await?;
 
         Ok(())
     }
@@ -219,8 +222,20 @@ impl Daemon {
         &self.registration_descriptor
     }
 
-    // Publish an message to MQTT
-    async fn publish<S>(client: &AsyncClient, topic: S, data: String) -> Result<(), ClientError>
+    async fn publish_registration(&self, client: &AsyncClient) -> Result<(), ClientError> {
+        let prefix = &self.config.mqtt.registration_prefix;
+        let descriptor = self.registration_descriptor();
+
+        Daemon::publish(
+            client,
+            descriptor.discovery_topic(prefix),
+            &descriptor.to_string(),
+        )
+        .await
+    }
+
+    // Publish a message to MQTT
+    async fn publish<S>(client: &AsyncClient, topic: S, data: &str) -> Result<(), ClientError>
     where
         S: Into<String> + std::fmt::Display,
     {

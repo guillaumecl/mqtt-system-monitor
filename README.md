@@ -45,6 +45,10 @@ The program can be run as a standalone program:
 
 ## Sensors
 
+### available
+
+Returns ON (connected) as long as `mqtt-system-monitor` is running and OFF (disconnected) otherwise
+
 ### cpu_temp
 
 Reports CPU Temperature in °C, if `sensors.temperature` is set

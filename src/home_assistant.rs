@@ -6,6 +6,9 @@ use strum_macros::EnumIter;
 /// Contains the different types of sensors that are available
 #[derive(Debug, PartialEq, EnumIter)]
 pub enum Sensor {
+    /// Tells if Home Assistant is available
+    Available,
+
     /// Sends the CPU usage in %
     CpuUsage,
 
@@ -26,6 +29,7 @@ impl Sensor {
     /// Name of the sensor type as sent in the status.
     pub fn as_str(&self) -> &'static str {
         match self {
+            Sensor::Available => "available",
             Sensor::CpuUsage => "cpu_usage",
             Sensor::CpuTemperature => "cpu_temp",
             Sensor::MemoryUsage => "memory_usage",
@@ -80,7 +84,7 @@ pub struct Origin {
 #[derive(Serialize, Debug)]
 pub struct DeviceComponent {
     /// Name of the component, shown in Home Assistant and is converted into the entity ID
-    name: &'static str,
+    name: Option<&'static str>,
 
     /// Type of platform. Always `sensor`
     platform: &'static str,
@@ -95,10 +99,15 @@ pub struct DeviceComponent {
     icon: Option<&'static str>,
 
     /// Describes how Home Assistant stores the data. It is usually `measurement`
-    state_class: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state_class: Option<&'static str>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    class: Option<&'static str>,
 
     /// Unit used in the report
-    unit_of_measurement: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unit_of_measurement: Option<&'static str>,
 
     /// Unique ID for the component. This is constructed from the entity and the sensor type
     unique_id: String,
@@ -107,7 +116,8 @@ pub struct DeviceComponent {
     value_template: &'static str,
 
     /// How long to keep the data when Home Assistant doesn't receive any data, in seconds
-    expire_after: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expire_after: Option<u64>,
 }
 
 impl RegistrationDescriptor {
@@ -194,6 +204,7 @@ impl DeviceComponent {
     /// Creates a new device component from a sensor type
     pub fn new(sensor: Sensor, entity: &str) -> DeviceComponent {
         match sensor {
+            Sensor::Available => Self::available(entity),
             Sensor::CpuTemperature => Self::cpu_temperature(entity),
             Sensor::CpuUsage => Self::cpu_usage(entity),
             Sensor::MemoryUsage => Self::memory_usage(entity),
@@ -203,77 +214,98 @@ impl DeviceComponent {
     }
 
     /// Manually creates a CPU temperature sensor
+    fn available(entity: &str) -> DeviceComponent {
+        DeviceComponent {
+            name: None,
+            platform: "binary_sensor",
+            class: Some("connectivity"),
+            device_class: None,
+            icon: None,
+            state_class: None,
+            unit_of_measurement: None,
+            unique_id: format!("{entity}_available"),
+            value_template: "{{ value_json.available }}",
+            expire_after: None,
+        }
+    }
+
+    /// Manually creates a CPU temperature sensor
     fn cpu_temperature(entity: &str) -> DeviceComponent {
         DeviceComponent {
-            name: "CPU temperature",
+            name: Some("CPU temperature"),
             platform: "sensor",
             device_class: Some("temperature"),
             icon: None,
-            state_class: "measurement",
-            unit_of_measurement: "°C",
+            state_class: Some("measurement"),
+            unit_of_measurement: Some("°C"),
             unique_id: format!("{entity}_cpu_temp"),
             value_template: "{{ value_json.cpu_temp }}",
-            expire_after: 60,
+            expire_after: Some(60),
+            class: None,
         }
     }
 
     /// Manually creates a CPU usage sensor
     fn cpu_usage(entity: &str) -> DeviceComponent {
         DeviceComponent {
-            name: "CPU usage",
+            name: Some("CPU usage"),
             platform: "sensor",
             device_class: None,
-            state_class: "measurement",
+            state_class: Some("measurement"),
             icon: Some("mdi:cpu-64-bit"),
-            unit_of_measurement: "%",
+            unit_of_measurement: Some("%"),
             unique_id: format!("{entity}_cpu_usage"),
             value_template: "{{ value_json.cpu_usage }}",
-            expire_after: 60,
+            expire_after: Some(60),
+            class: None,
         }
     }
 
     /// Manually creates a Memory usage sensor
     fn memory_usage(entity: &str) -> DeviceComponent {
         DeviceComponent {
-            name: "Memory usage",
+            name: Some("Memory usage"),
             platform: "sensor",
             device_class: None,
-            state_class: "measurement",
+            state_class: Some("measurement"),
             icon: Some("mdi:memory"),
-            unit_of_measurement: "%",
+            unit_of_measurement: Some("%"),
             unique_id: format!("{entity}_memory_usage"),
             value_template: "{{ value_json.memory_usage }}",
-            expire_after: 60,
+            expire_after: Some(60),
+            class: None,
         }
     }
 
     /// Manually creates a Network RX sensor
     fn net_rx(entity: &str) -> DeviceComponent {
         DeviceComponent {
-            name: "Network RX rate",
+            name: Some("Network RX rate"),
             platform: "sensor",
             device_class: Some("data_rate"),
-            state_class: "measurement",
+            state_class: Some("measurement"),
             icon: None,
-            unit_of_measurement: "KiB/s",
+            unit_of_measurement: Some("KiB/s"),
             unique_id: format!("{entity}_net_rx"),
             value_template: "{{ value_json.net_rx }}",
-            expire_after: 60,
+            expire_after: Some(60),
+            class: None,
         }
     }
 
     /// Manually creates a Network TX sensor
     fn net_tx(entity: &str) -> DeviceComponent {
         DeviceComponent {
-            name: "Network TX rate",
+            name: Some("Network TX rate"),
             platform: "sensor",
             device_class: Some("data_rate"),
-            state_class: "measurement",
+            state_class: Some("measurement"),
             icon: None,
-            unit_of_measurement: "KiB/s",
+            unit_of_measurement: Some("KiB/s"),
             unique_id: format!("{entity}_net_tx"),
             value_template: "{{ value_json.net_tx }}",
-            expire_after: 60,
+            expire_after: Some(60),
+            class: None,
         }
     }
 }
@@ -307,7 +339,9 @@ mod tests {
                 component.1.value_template,
                 format!("{{{{ value_json.{} }}}}", component.0).as_str()
             );
-            assert_eq!(component.1.state_class, "measurement");
+            if component.1.name.is_some() {
+                assert_eq!(component.1.state_class, Some("measurement"));
+            }
         }
 
         let cpu_usage = descriptor
@@ -336,9 +370,10 @@ mod tests {
                 format!("{{{{ value_json.{name} }}}}").as_str()
             );
 
-            assert_eq!(component.state_class, "measurement");
-
-            assert!(status_json.contains_key(name));
+            if component.name.is_some() {
+                assert_eq!(component.state_class, Some("measurement"));
+                assert!(status_json.contains_key(name));
+            }
         }
     }
 }

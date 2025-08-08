@@ -4,6 +4,10 @@
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Availability sensor, which tells Home Assistant when the device is connected/disconnected.
+
 ## [1.1.0] - 2025-08-07
 
 ### Added
