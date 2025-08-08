@@ -4,7 +4,7 @@ use std::fmt;
 use strum_macros::EnumIter;
 
 /// Contains the different types of sensors that are available
-#[derive(Debug, EnumIter)]
+#[derive(Debug, PartialEq, EnumIter)]
 pub enum Sensor {
     /// Sends the CPU usage in %
     CpuUsage,
@@ -280,8 +280,10 @@ impl DeviceComponent {
 
 #[cfg(test)]
 mod tests {
-    use crate::DeviceComponent;
     use crate::home_assistant::{RegistrationDescriptor, Sensor};
+    use crate::{DeviceComponent, StatusMessage};
+    use serde_json::Value;
+    use std::collections::HashMap;
     use strum::IntoEnumIterator;
 
     #[test]
@@ -320,6 +322,9 @@ mod tests {
     #[test]
     fn test_sensors() {
         let entity = "test_entity";
+        let status: StatusMessage = Default::default();
+        let status_json: HashMap<String, Value> =
+            serde_json::from_str(&status.to_string()).expect("Cannot read default status");
 
         for sensor in Sensor::iter() {
             let name = sensor.as_str();
@@ -330,7 +335,10 @@ mod tests {
                 component.value_template,
                 format!("{{{{ value_json.{name} }}}}").as_str()
             );
+
             assert_eq!(component.state_class, "measurement");
+
+            assert!(status_json.contains_key(name));
         }
     }
 }

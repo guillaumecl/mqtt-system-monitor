@@ -4,7 +4,7 @@ use std::fmt;
 /// Message sent to the MQTT broker which later forwards it to Home Assistant
 ///
 /// This contains the payload that Home Assistant uses to read the values.
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Default)]
 pub struct StatusMessage {
     /// CPU usage in %
     pub cpu_usage: f32,
