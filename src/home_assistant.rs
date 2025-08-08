@@ -1,9 +1,10 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt;
+use strum_macros::EnumIter;
 
 /// Contains the different types of sensors that are available
-#[derive(Debug)]
+#[derive(Debug, EnumIter)]
 pub enum Sensor {
     /// Sends the CPU usage in %
     CpuUsage,
@@ -279,17 +280,16 @@ impl DeviceComponent {
 
 #[cfg(test)]
 mod tests {
+    use crate::DeviceComponent;
     use crate::home_assistant::{RegistrationDescriptor, Sensor};
+    use strum::IntoEnumIterator;
 
     #[test]
-    fn test_registration() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_registration() {
         let entity = "test_entity";
         let mut descriptor = RegistrationDescriptor::new(entity);
 
-        descriptor.add_component(Sensor::CpuUsage);
-        descriptor.add_component(Sensor::CpuTemperature);
-        descriptor.add_component(Sensor::NetTx);
-        descriptor.add_component(Sensor::NetRx);
+        Sensor::iter().for_each(|sensor| descriptor.add_component(sensor));
 
         assert_eq!(descriptor.device.name, "test_entity");
         assert_eq!(descriptor.device.identifiers, "test_entity");
@@ -314,7 +314,23 @@ mod tests {
             .expect("component cpu_usage not found");
 
         assert_eq!(cpu_usage.device_class, None);
+    }
 
-        Ok(())
+    /// Test that all sensors can be created
+    #[test]
+    fn test_sensors() {
+        let entity = "test_entity";
+
+        for sensor in Sensor::iter() {
+            let name = sensor.as_str();
+            let component = DeviceComponent::new(sensor, entity);
+
+            assert_eq!(component.unique_id, format!("{entity}_{name}"));
+            assert_eq!(
+                component.value_template,
+                format!("{{{{ value_json.{name} }}}}").as_str()
+            );
+            assert_eq!(component.state_class, "measurement");
+        }
     }
 }
