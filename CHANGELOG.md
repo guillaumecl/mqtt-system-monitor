@@ -4,6 +4,10 @@
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- The systemd service now wants default.target to be able to be used on user sessions
+
 ## [1.1.1] - 2025-08-09
 
 ### Added

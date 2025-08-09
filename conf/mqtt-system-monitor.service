@@ -9,4 +9,4 @@ RestartSec=10
 ExecStart=/usr/bin/mqtt-system-monitor
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
