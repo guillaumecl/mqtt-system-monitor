@@ -103,9 +103,6 @@ pub struct DeviceComponent {
     #[serde(skip_serializing_if = "Option::is_none")]
     state_class: Option<&'static str>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    class: Option<&'static str>,
-
     /// Unit used in the report
     #[serde(skip_serializing_if = "Option::is_none")]
     unit_of_measurement: Option<&'static str>,
@@ -225,8 +222,7 @@ impl DeviceComponent {
         DeviceComponent {
             name: None,
             platform: "binary_sensor",
-            class: Some("connectivity"),
-            device_class: None,
+            device_class: Some("connectivity"),
             icon: None,
             state_class: None,
             unit_of_measurement: None,
@@ -248,7 +244,6 @@ impl DeviceComponent {
             unique_id: format!("{entity}_cpu_temp"),
             value_template: "{{ value_json.cpu_temp }}",
             expire_after: Some(60),
-            class: None,
         }
     }
 
@@ -264,7 +259,6 @@ impl DeviceComponent {
             unique_id: format!("{entity}_cpu_usage"),
             value_template: "{{ value_json.cpu_usage }}",
             expire_after: Some(60),
-            class: None,
         }
     }
 
@@ -280,7 +274,6 @@ impl DeviceComponent {
             unique_id: format!("{entity}_memory_usage"),
             value_template: "{{ value_json.memory_usage }}",
             expire_after: Some(60),
-            class: None,
         }
     }
 
@@ -296,7 +289,6 @@ impl DeviceComponent {
             unique_id: format!("{entity}_net_rx"),
             value_template: "{{ value_json.net_rx }}",
             expire_after: Some(60),
-            class: None,
         }
     }
 
@@ -312,7 +304,6 @@ impl DeviceComponent {
             unique_id: format!("{entity}_net_tx"),
             value_template: "{{ value_json.net_tx }}",
             expire_after: Some(60),
-            class: None,
         }
     }
 }

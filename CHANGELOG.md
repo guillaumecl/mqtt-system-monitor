@@ -7,6 +7,7 @@
 ### Fixed
 
 - The systemd service now wants default.target to be able to be used on user sessions
+- Fix availability sensor connectivity class
 
 ## [1.1.1] - 2025-08-09
 
