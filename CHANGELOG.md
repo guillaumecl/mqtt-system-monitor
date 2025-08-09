@@ -4,6 +4,10 @@
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Allow the registration of several network interfaces sensors.
+
 ### Fixed
 
 - The systemd service now wants default.target to be able to be used on user sessions
@@ -25,7 +29,7 @@
 
 ### Fixed
 
-- Allow cleanup when interrupting with Ctrl-C or SIGINT. This will allow to send end messages later
+- Allow cleanup when interrupting with Ctrl-C or SIGINT. This will allow sending end messages later
 
 ## [1.0.5] - 2025-08-05
 

@@ -1,12 +1,12 @@
 use crate::configuration::Configuration;
 use crate::home_assistant::{RegistrationDescriptor, Sensor};
-use crate::status::StatusMessage;
+use crate::status::{NetworkStatus, StatusMessage};
 use log::{debug, error, info, trace};
 use rumqttc::{AsyncClient, ClientError, MqttOptions, QoS};
+use std::collections::HashMap;
 use std::error::Error;
 use sysinfo::{
-    Component, Components, CpuRefreshKind, MemoryRefreshKind, NetworkData, Networks, RefreshKind,
-    System,
+    Component, Components, CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System,
 };
 use tokio::signal::unix::SignalKind;
 use tokio::task;
@@ -88,12 +88,9 @@ impl Daemon {
             self.system.refresh_memory();
         }
 
-        if self.registration_descriptor.has_sensor(Sensor::NetTx)
-            || self.registration_descriptor.has_sensor(Sensor::NetRx)
-        {
+        if !self.config.sensors.network.is_empty() {
             self.network.refresh(true);
         }
-        let (net_tx, net_rx) = self.select_network();
 
         let component = &mut self.temp_component;
         if self
@@ -111,27 +108,30 @@ impl Daemon {
                 100.0 * (self.system.used_memory() as f32 / self.system.total_memory() as f32),
             ),
             cpu_temp: component.as_ref().and_then(|c| c.temperature()),
-            net_tx: Self::rate(net_tx, self.config.mqtt.update_period),
-            net_rx: Self::rate(net_rx, self.config.mqtt.update_period),
+            network: self.select_network(),
         }
     }
 
-    fn select_interface(&self) -> Option<&NetworkData> {
-        let network = self.config.sensors.network.as_deref()?;
+    /// Selects the current network values according to the configured interfaces
+    fn select_network(&self) -> HashMap<String, NetworkStatus> {
+        let mut map = HashMap::new();
+        for interface in &self.config.sensors.network {
+            let network = match self.network.iter().find(|n| n.0 == interface).map(|n| n.1) {
+                Some(interface) => NetworkStatus {
+                    tx: Self::rate(interface.transmitted(), self.config.mqtt.update_period),
+                    rx: Self::rate(interface.received(), self.config.mqtt.update_period),
+                },
+                None => NetworkStatus { tx: None, rx: None },
+            };
 
-        self.network.iter().find(|n| n.0 == network).map(|n| n.1)
-    }
-
-    /// Selects the current network values according to the configured interface and returns a tuple (`transmitted`, `received`)
-    fn select_network(&self) -> (Option<u64>, Option<u64>) {
-        match self.select_interface() {
-            Some(interface) => (Some(interface.transmitted()), Some(interface.received())),
-            None => (None, None),
+            map.insert(interface.clone(), network);
         }
+
+        map
     }
 
-    fn rate(diff: Option<u64>, update_period: u64) -> Option<f64> {
-        Some((diff? / update_period) as f64 / 1024.0)
+    fn rate(diff: u64, update_period: u64) -> Option<f64> {
+        Some((diff / update_period) as f64 / 1024.0)
     }
 
     /// Registers the configured sensors in the descriptor
@@ -145,9 +145,12 @@ impl Daemon {
             self.registration_descriptor
                 .add_component(Sensor::CpuTemperature);
         }
-        if self.config.sensors.network.is_some() {
-            self.registration_descriptor.add_component(Sensor::NetTx);
-            self.registration_descriptor.add_component(Sensor::NetRx);
+        for interface in &self.config.sensors.network {
+            debug!("Adding interface {interface}");
+            self.registration_descriptor
+                .add_component(Sensor::NetTx(interface.clone()));
+            self.registration_descriptor
+                .add_component(Sensor::NetRx(interface.clone()));
         }
     }
 
@@ -199,11 +202,25 @@ impl Daemon {
             }
         }
 
-        Daemon::publish(&client, topic, &StatusMessage::off().to_string()).await?;
+        Daemon::publish(&client, topic, &self.status_off().to_string()).await?;
 
         sleep(std::time::Duration::from_secs(1)).await;
 
         Ok(())
+    }
+
+    /// Produces the status when we're disconnecting
+    fn status_off(&self) -> StatusMessage {
+        let mut empty_network = HashMap::new();
+        for interface in &self.config.sensors.network {
+            empty_network.insert(interface.clone(), NetworkStatus::default());
+        }
+
+        StatusMessage {
+            available: "OFF",
+            network: empty_network,
+            ..Default::default()
+        }
     }
 
     // Publish an update to MQTT
@@ -250,12 +267,9 @@ mod tests {
 
     #[test]
     fn test_rate() {
-        // As long as we don't have any data to send, the start stays at None
-        assert_eq!(Daemon::rate(None, 10), None);
-
-        assert_eq!(Daemon::rate(Some(1024), 1), Some(1.0));
+        assert_eq!(Daemon::rate(1024, 1), Some(1.0));
 
         // The total received was increased by 20 KiBytes, divided by the update of 10 is 2 KiBytes/s
-        assert_eq!(Daemon::rate(Some(2 * 1024 * 10), 10), Some(2.0));
+        assert_eq!(Daemon::rate(2 * 1024 * 10, 10), Some(2.0));
     }
 }

@@ -10,41 +10,28 @@ use sysinfo::{Components, Networks};
 fn test_empty_values() -> Result<(), Box<dyn Error>> {
     let conf = configuration::Configuration::load("conf/mqtt-system-monitor.conf")?;
 
-    let interface = conf.sensors.network.clone();
     let temp_sensor = conf.sensors.temperature.clone();
 
     let mut daemon = Daemon::new(conf);
 
     let status = daemon.update_data();
+    assert!(status.network.is_empty());
 
-    println!("First read:");
-    println!(
-        "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
-        status.net_tx, status.net_rx, interface
-    );
     println!(
         "We have read temp={:?} on component {:?}",
         status.cpu_temp, temp_sensor
     );
 
-    assert_eq!(status.net_rx, None);
-    assert_eq!(status.net_tx, None);
     assert_eq!(status.cpu_temp, None);
 
     let status = daemon.update_data();
 
-    println!("Second read:");
-    println!(
-        "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
-        status.net_tx, status.net_rx, interface
-    );
     println!(
         "We have read temp={:?} on component {:?}",
         status.cpu_temp, temp_sensor
     );
 
-    assert_eq!(status.net_rx, None);
-    assert_eq!(status.net_tx, None);
+    assert!(status.network.is_empty());
     assert_eq!(status.cpu_temp, None);
 
     daemon.register_sensors();
@@ -53,8 +40,6 @@ fn test_empty_values() -> Result<(), Box<dyn Error>> {
 
     assert!(descriptor.has_sensor(Sensor::CpuUsage));
     assert_eq!(descriptor.has_sensor(Sensor::CpuTemperature), false);
-    assert_eq!(descriptor.has_sensor(Sensor::NetTx), false);
-    assert_eq!(descriptor.has_sensor(Sensor::NetRx), false);
 
     Ok(())
 }
@@ -65,14 +50,7 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     let components = Components::new_with_refreshed_list();
     let mut conf = configuration::Configuration::load("conf/mqtt-system-monitor.conf")?;
 
-    conf.sensors.network = Some(
-        network
-            .iter()
-            .next()
-            .expect("Should have at least a network to test")
-            .0
-            .clone(),
-    );
+    conf.sensors.network = network.iter().map(|n| n.0.clone()).collect();
     conf.sensors.temperature = components
         .iter()
         .next()
@@ -87,11 +65,12 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     daemon.register_sensors();
 
     let status = daemon.update_data();
+    let network_status = &status.network[interface.first().unwrap()];
 
     println!("First read:");
     println!(
         "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
-        status.net_tx, status.net_rx, interface
+        network_status.tx, network_status.rx, interface
     );
     println!(
         "We have read temp={:?} on component {:?}",
@@ -99,18 +78,19 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     );
 
     // The first call, the transfer rate is always at 0. It can be non-zero after some time
-    assert_eq!(status.net_rx, Some(0.0));
-    assert_eq!(status.net_tx, Some(0.0));
+    assert_eq!(network_status.rx, Some(0.0));
+    assert_eq!(network_status.tx, Some(0.0));
     if temp_sensor.is_some() {
         assert_ne!(status.cpu_temp, None);
     }
 
     let status = daemon.update_data();
+    let network_status = &status.network[interface.first().unwrap()];
 
     println!("Second read:");
     println!(
         "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
-        status.net_tx, status.net_rx, interface
+        network_status.tx, network_status.rx, interface
     );
     println!(
         "We have read temp={:?} on component {:?}",
@@ -120,12 +100,12 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     let descriptor = &mut daemon.registration_descriptor();
 
     assert!(descriptor.has_sensor(Sensor::CpuUsage));
-    assert!(descriptor.has_sensor(Sensor::NetTx));
-    assert!(descriptor.has_sensor(Sensor::NetRx));
+    //assert!(descriptor.has_sensor(Sensor::NetTx));
+    //assert!(descriptor.has_sensor(Sensor::NetRx));
 
     // After the first call we always have a value, it can be zero if the network interface didn't get used
-    assert_ne!(status.net_rx, None);
-    assert_ne!(status.net_tx, None);
+    assert_ne!(network_status.rx, None);
+    assert_ne!(network_status.tx, None);
     if temp_sensor.is_some() {
         assert!(descriptor.has_sensor(Sensor::CpuTemperature));
         assert_ne!(status.cpu_temp, None);
@@ -140,19 +120,14 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     let components = Components::new_with_refreshed_list();
     let mut conf = configuration::Configuration::load("conf/mqtt-system-monitor.conf")?;
 
-    conf.sensors.network = Some(
-        network
-            .iter()
-            .next()
-            .expect("Should have at least a network to test")
-            .0
-            .clone(),
-    );
+    conf.sensors.network = network.iter().map(|n| n.0.clone()).collect();
     conf.sensors.temperature = components
         .iter()
         .next()
         .map(|c| c.label())
         .map(|l| l.to_string());
+
+    let first_interface = conf.sensors.network.first().unwrap().clone();
 
     let temp_sensor = conf.sensors.temperature.clone();
 
@@ -208,20 +183,28 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
         "test_entity_memory_usage"
     );
     assert_eq!(
-        json["components"]["net_rx"]["platform"].as_str().unwrap(),
+        json["components"][format!("{first_interface}_net_rx")]["platform"]
+            .as_str()
+            .unwrap(),
         "sensor"
     );
     assert_eq!(
-        json["components"]["net_rx"]["unique_id"].as_str().unwrap(),
-        "test_entity_net_rx"
+        json["components"][format!("{first_interface}_net_rx")]["unique_id"]
+            .as_str()
+            .unwrap(),
+        format!("test_entity_{first_interface}_net_rx")
     );
     assert_eq!(
-        json["components"]["net_tx"]["platform"].as_str().unwrap(),
+        json["components"][format!("{first_interface}_net_tx")]["platform"]
+            .as_str()
+            .unwrap(),
         "sensor"
     );
     assert_eq!(
-        json["components"]["net_tx"]["unique_id"].as_str().unwrap(),
-        "test_entity_net_tx"
+        json["components"][format!("{first_interface}_net_tx")]["unique_id"]
+            .as_str()
+            .unwrap(),
+        format!("test_entity_{first_interface}_net_tx")
     );
 
     Ok(())

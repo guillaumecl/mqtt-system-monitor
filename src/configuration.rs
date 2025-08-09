@@ -46,8 +46,9 @@ pub struct Sensors {
     /// If set, contains a temperature label to search in `sysinfo`'s component reports.
     pub temperature: Option<String>,
 
-    /// If set, contains a network interface to monitor.
-    pub network: Option<String>,
+    /// If set, contains a list of network interface to monitor.
+    #[serde(default)]
+    pub network: Vec<String>,
 }
 
 /// Contains all the configuration for `mqtt-system-monitor`
@@ -109,7 +110,7 @@ mod tests {
 
         // Sensors are off by default
         assert_eq!(conf.sensors.temperature, None);
-        assert_eq!(conf.sensors.network, None);
+        assert!(conf.sensors.network.is_empty());
 
         Ok(())
     }
