@@ -7,6 +7,7 @@
 ### Added
 
 - Availability sensor, which tells Home Assistant when the device is connected/disconnected.
+- The entity ID can now have spaces or uppercase letters and is converted in snake case
 
 ## [1.1.0] - 2025-08-07
 

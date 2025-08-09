@@ -1,3 +1,4 @@
+use convert_case::{Case, Casing};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt;
@@ -134,14 +135,15 @@ impl RegistrationDescriptor {
     /// descriptor.add_component(Sensor::CpuUsage);
     /// assert!(descriptor.has_sensor(Sensor::CpuUsage));
     /// ```
-    pub fn new(entity: &str) -> RegistrationDescriptor {
+    pub fn new(name: &str) -> RegistrationDescriptor {
         let version = env!("CARGO_PKG_VERSION");
         let package_name = env!("CARGO_PKG_NAME");
         let url = env!("CARGO_PKG_HOMEPAGE");
+        let entity = name.to_case(Case::Snake);
 
         RegistrationDescriptor {
             device: Device {
-                name: entity.to_string(),
+                name: name.to_string(),
                 identifiers: entity.to_string(),
             },
             origin: Origin {
@@ -170,7 +172,7 @@ impl RegistrationDescriptor {
     pub fn add_component(&mut self, sensor: Sensor) {
         self.components.insert(
             sensor.as_str(),
-            DeviceComponent::new(sensor, self.device.name.as_str()),
+            DeviceComponent::new(sensor, self.device.identifiers.as_str()),
         );
     }
 
@@ -186,7 +188,12 @@ impl RegistrationDescriptor {
 
     /// Discovery topic for this sensor if individual updates are sent
     pub fn discovery_topic(&self, prefix: &str) -> String {
-        format!("{prefix}/device/{}/config", self.device.name)
+        format!("{prefix}/device/{}/config", self.device.identifiers)
+    }
+
+    /// Discovery topic for this sensor if individual updates are sent
+    pub fn state_topic(&self) -> &str {
+        &self.state_topic
     }
 }
 
@@ -320,13 +327,14 @@ mod tests {
 
     #[test]
     fn test_registration() {
+        let name = "Test Entity";
         let entity = "test_entity";
-        let mut descriptor = RegistrationDescriptor::new(entity);
+        let mut descriptor = RegistrationDescriptor::new(name);
 
         Sensor::iter().for_each(|sensor| descriptor.add_component(sensor));
 
-        assert_eq!(descriptor.device.name, "test_entity");
-        assert_eq!(descriptor.device.identifiers, "test_entity");
+        assert_eq!(descriptor.device.name, name);
+        assert_eq!(descriptor.device.identifiers, entity);
 
         assert_eq!(
             descriptor.state_topic,

@@ -157,7 +157,7 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     let temp_sensor = conf.sensors.temperature.clone();
 
     let prefix = "test_prefix";
-    conf.mqtt.entity = "test_entity".to_string();
+    conf.mqtt.entity = "Test Entity".to_string();
 
     let mut daemon = Daemon::new(conf);
     daemon.register_sensors();
@@ -168,7 +168,11 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     );
 
     let json: HashMap<String, Value> = serde_json::from_str(descriptor.to_string().as_str())?;
-    assert_eq!(json["device"]["name"].as_str().unwrap(), "test_entity");
+    assert_eq!(json["device"]["name"].as_str().unwrap(), "Test Entity");
+    assert_eq!(
+        json["device"]["identifiers"].as_str().unwrap(),
+        "test_entity"
+    );
     assert_eq!(
         json["state_topic"].as_str().unwrap(),
         "mqtt-system-monitor/test_entity/state"

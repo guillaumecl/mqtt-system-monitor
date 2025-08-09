@@ -174,7 +174,7 @@ impl Daemon {
         let expire_cycles = 60 / self.config.mqtt.update_period - 1;
         let sleep_period = std::time::Duration::from_secs(self.config.mqtt.update_period);
         let mut terminal_signal = tokio::signal::unix::signal(SignalKind::terminate())?;
-        let topic = format!("mqtt-system-monitor/{}/state", self.config.mqtt.entity);
+        let topic = self.registration_descriptor.state_topic().to_string();
 
         self.publish_registration(&client).await?;
         sleep(std::time::Duration::from_secs(1)).await;
@@ -185,7 +185,7 @@ impl Daemon {
                 self.publish_registration(&client).await?;
             }
 
-            self.publish_update(&client, topic.as_str()).await?;
+            self.publish_update(&client, &topic).await?;
             tokio::select! {
                 _ = sleep(sleep_period) => {},
                 _ = tokio::signal::ctrl_c() => {
