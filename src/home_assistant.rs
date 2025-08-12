@@ -14,7 +14,7 @@ pub enum Sensor {
     CpuUsage,
 
     /// Sends a temperature in °C
-    Temperature(String),
+    Temperature(String, String),
 
     /// Sends the memory usage in %
     MemoryUsage,
@@ -32,7 +32,7 @@ impl Sensor {
         match self {
             Sensor::Available => "available".to_string(),
             Sensor::CpuUsage => "cpu_usage".to_string(),
-            Sensor::Temperature(id) => format!("{id}_temp"),
+            Sensor::Temperature(id, _) => format!("{id}_temp"),
             Sensor::MemoryUsage => "memory_usage".to_string(),
             Sensor::NetRx(interface) => format!("{interface}_net_rx"),
             Sensor::NetTx(interface) => format!("{interface}_net_tx"),
@@ -214,11 +214,11 @@ impl DeviceComponent {
     pub fn new(sensor: Sensor, entity: &str) -> DeviceComponent {
         match sensor {
             Sensor::Available => Self::available(entity),
-            Sensor::Temperature(id) => Self::temperature(entity, &id),
             Sensor::CpuUsage => Self::cpu_usage(entity),
             Sensor::MemoryUsage => Self::memory_usage(entity),
             Sensor::NetRx(interface) => Self::net_rx(entity, &interface),
             Sensor::NetTx(interface) => Self::net_tx(entity, &interface),
+            Sensor::Temperature(id, label) => Self::temperature(entity, &id, &label),
         }
     }
 
@@ -268,9 +268,9 @@ impl DeviceComponent {
     }
 
     /// Manually creates a temperature sensor
-    fn temperature(entity: &str, id: &str) -> DeviceComponent {
+    fn temperature(entity: &str, id: &str, label: &str) -> DeviceComponent {
         DeviceComponent {
-            name: Some(format!("{id} temperature")),
+            name: Some(label.to_string()),
             platform: "sensor",
             device_class: Some("temperature"),
             icon: None,

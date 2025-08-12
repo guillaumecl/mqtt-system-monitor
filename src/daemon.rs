@@ -77,12 +77,10 @@ impl Daemon {
             self.network.refresh(true);
         }
 
-        if !self.config.sensors.temperature.is_empty() {
+        for temp_id in &self.config.sensors.temperature {
             for component in self.components.iter_mut() {
                 if let Some(id) = component.id()
-                    && self
-                        .registration_descriptor
-                        .has_sensor(Sensor::Temperature(id.to_string()))
+                    && temp_id == id
                 {
                     component.refresh();
                 }
@@ -142,11 +140,24 @@ impl Daemon {
         self.registration_descriptor.add_component(Sensor::CpuUsage);
         self.registration_descriptor
             .add_component(Sensor::MemoryUsage);
+
         for id in &self.config.sensors.temperature {
             debug!("Adding temperature {id}");
-            self.registration_descriptor
-                .add_component(Sensor::Temperature(id.clone()));
+
+            for component in self.components.iter_mut() {
+                if let Some(comp_id) = component.id()
+                    && comp_id == id
+                {
+                    self.registration_descriptor
+                        .add_component(Sensor::Temperature(
+                            id.clone(),
+                            component.label().to_string(),
+                        ));
+                    break;
+                }
+            }
         }
+
         for interface in &self.config.sensors.network {
             debug!("Adding interface {interface}");
             self.registration_descriptor

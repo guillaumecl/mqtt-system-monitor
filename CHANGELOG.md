@@ -9,6 +9,10 @@
 - The temperature ID is used instead of the label
 - Allow several temperature sensors
 
+### Fixed
+
+- The label for temperature components is the label reported by `sysinfo`
+
 ## [1.2.0] - 2025-08-09
 
 ### Added
