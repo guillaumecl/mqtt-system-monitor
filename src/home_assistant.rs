@@ -287,7 +287,9 @@ impl DeviceComponent {
             icon: None,
             unit_of_measurement: Some("KiB/s"),
             unique_id: format!("{entity}_{interface}_net_rx"),
-            value_template: format!("{{{{ value_json.network.{interface}.rx }}}}"),
+            value_template: format!(
+                "{{{{ value_json.network.{interface}.rx if value_json.network.{interface} else None }}}}"
+            ),
             expire_after: Some(60),
         }
     }
@@ -302,7 +304,9 @@ impl DeviceComponent {
             icon: None,
             unit_of_measurement: Some("KiB/s"),
             unique_id: format!("{entity}_{interface}_net_tx"),
-            value_template: format!("{{{{ value_json.network.{interface}.tx }}}}"),
+            value_template: format!(
+                "{{{{ value_json.network.{interface}.tx if value_json.network.{interface} else None }}}}"
+            ),
             expire_after: Some(60),
         }
     }

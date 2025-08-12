@@ -116,22 +116,22 @@ impl Daemon {
     fn select_network(&self) -> HashMap<String, NetworkStatus> {
         let mut map = HashMap::new();
         for interface in &self.config.sensors.network {
-            let network = match self.network.iter().find(|n| n.0 == interface).map(|n| n.1) {
-                Some(interface) => NetworkStatus {
-                    tx: Self::rate(interface.transmitted(), self.config.mqtt.update_period),
-                    rx: Self::rate(interface.received(), self.config.mqtt.update_period),
-                },
-                None => NetworkStatus { tx: None, rx: None },
+            if let Some((_, network_data)) = self.network.iter().find(|n| n.0 == interface) {
+                map.insert(
+                    interface.clone(),
+                    NetworkStatus {
+                        tx: self.rate(network_data.transmitted()),
+                        rx: self.rate(network_data.received()),
+                    },
+                );
             };
-
-            map.insert(interface.clone(), network);
         }
 
         map
     }
 
-    fn rate(diff: u64, update_period: u64) -> Option<f64> {
-        Some((diff / update_period) as f64 / 1024.0)
+    fn rate(&self, diff: u64) -> f64 {
+        (diff / self.config.mqtt.update_period) as f64 / 1024.0
     }
 
     /// Registers the configured sensors in the descriptor
@@ -202,25 +202,11 @@ impl Daemon {
             }
         }
 
-        Daemon::publish(&client, topic, &self.status_off().to_string()).await?;
+        Daemon::publish(&client, topic, &StatusMessage::off().to_string()).await?;
 
         sleep(std::time::Duration::from_secs(1)).await;
 
         Ok(())
-    }
-
-    /// Produces the status when we're disconnecting
-    fn status_off(&self) -> StatusMessage {
-        let mut empty_network = HashMap::new();
-        for interface in &self.config.sensors.network {
-            empty_network.insert(interface.clone(), NetworkStatus::default());
-        }
-
-        StatusMessage {
-            available: "OFF",
-            network: empty_network,
-            ..Default::default()
-        }
     }
 
     // Publish an update to MQTT
@@ -267,9 +253,15 @@ mod tests {
 
     #[test]
     fn test_rate() {
-        assert_eq!(Daemon::rate(1024, 1), Some(1.0));
+        let config = Configuration::load("conf/mqtt-system-monitor.conf")
+            .expect("Failed to load default config");
+        let mut daemon = Daemon::new(config);
 
+        daemon.config.mqtt.update_period = 1;
+        assert_eq!(daemon.rate(1024), 1.0);
+
+        daemon.config.mqtt.update_period = 10;
         // The total received was increased by 20 KiBytes, divided by the update of 10 is 2 KiBytes/s
-        assert_eq!(Daemon::rate(2 * 1024 * 10, 10), Some(2.0));
+        assert_eq!(daemon.rate(2 * 1024 * 10), 2.0);
     }
 }

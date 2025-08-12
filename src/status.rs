@@ -25,10 +25,10 @@ pub struct StatusMessage {
 #[derive(Serialize, Debug, Default)]
 pub struct NetworkStatus {
     /// Net TX rate in KiB/s
-    pub tx: Option<f64>,
+    pub tx: f64,
 
     /// Net RX rate in KiB/s
-    pub rx: Option<f64>,
+    pub rx: f64,
 }
 
 impl fmt::Display for StatusMessage {
@@ -38,5 +38,15 @@ impl fmt::Display for StatusMessage {
             return Err(fmt::Error);
         };
         write!(f, "{str}")
+    }
+}
+
+impl StatusMessage {
+    /// Produces the status when we're disconnecting
+    pub fn off() -> StatusMessage {
+        StatusMessage {
+            available: "OFF",
+            ..Default::default()
+        }
     }
 }

@@ -78,20 +78,17 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     );
 
     // The first call, the transfer rate is always at 0. It can be non-zero after some time
-    assert_eq!(network_status.rx, Some(0.0));
-    assert_eq!(network_status.tx, Some(0.0));
+    assert_eq!(network_status.rx, 0.0);
+    assert_eq!(network_status.tx, 0.0);
     if temp_sensor.is_some() {
         assert_ne!(status.cpu_temp, None);
     }
 
     let status = daemon.update_data();
-    let network_status = &status.network[interface.first().unwrap()];
+    let network_status = &status.network.get(interface.first().unwrap());
 
     println!("Second read:");
-    println!(
-        "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
-        network_status.tx, network_status.rx, interface
-    );
+    println!("We have read {network_status:?} on interface {interface:?}");
     println!(
         "We have read temp={:?} on component {:?}",
         status.cpu_temp, temp_sensor
@@ -104,8 +101,7 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     //assert!(descriptor.has_sensor(Sensor::NetRx));
 
     // After the first call we always have a value, it can be zero if the network interface didn't get used
-    assert_ne!(network_status.rx, None);
-    assert_ne!(network_status.tx, None);
+    assert!(network_status.is_some());
     if temp_sensor.is_some() {
         assert!(descriptor.has_sensor(Sensor::CpuTemperature));
         assert_ne!(status.cpu_temp, None);
