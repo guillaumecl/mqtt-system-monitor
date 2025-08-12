@@ -12,12 +12,13 @@ pub struct StatusMessage {
     /// CPU usage in %
     pub cpu_usage: Option<f32>,
 
-    /// CPU temperature in °C
-    pub cpu_temp: Option<f32>,
-
     /// Memory usage in %
     pub memory_usage: Option<f32>,
 
+    /// Temperatures in °C
+    pub temperature: HashMap<String, f32>,
+
+    /// Statistics for the network interfaces
     pub network: HashMap<String, NetworkStatus>,
 }
 

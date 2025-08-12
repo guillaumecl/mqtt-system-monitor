@@ -43,8 +43,9 @@ pub struct Mqtt {
 /// Contains the configuration for the sensors
 #[derive(Deserialize)]
 pub struct Sensors {
-    /// If set, contains a temperature idd to search in `sysinfo`'s component reports.
-    pub temperature: Option<String>,
+    /// If set, contains a list of temperature ids to search in `sysinfo`'s component reports.
+    #[serde(default)]
+    pub temperature: Vec<String>,
 
     /// If set, contains a list of network interface to monitor.
     #[serde(default)]
@@ -109,7 +110,7 @@ mod tests {
         assert_eq!(conf.mqtt.entity, hostname());
 
         // Sensors are off by default
-        assert_eq!(conf.sensors.temperature, None);
+        assert!(conf.sensors.temperature.is_empty());
         assert!(conf.sensors.network.is_empty());
 
         Ok(())

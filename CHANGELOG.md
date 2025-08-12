@@ -7,6 +7,7 @@
 ### Breaking changes
 
 - The temperature ID is used instead of the label
+- Allow several temperature sensors
 
 ## [1.2.0] - 2025-08-09
 

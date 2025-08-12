@@ -5,9 +5,7 @@ use log::{debug, error, info, trace};
 use rumqttc::{AsyncClient, ClientError, MqttOptions, QoS};
 use std::collections::HashMap;
 use std::error::Error;
-use sysinfo::{
-    Component, Components, CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System,
-};
+use sysinfo::{Components, CpuRefreshKind, MemoryRefreshKind, Networks, RefreshKind, System};
 use tokio::signal::unix::SignalKind;
 use tokio::task;
 use tokio::time::sleep;
@@ -20,7 +18,7 @@ pub struct Daemon {
 
     system: System,
     network: Networks,
-    temp_component: Option<Component>,
+    components: Components,
 }
 
 impl Daemon {
@@ -61,22 +59,9 @@ impl Daemon {
             registration_descriptor: RegistrationDescriptor::new(&config.mqtt.entity),
             system,
             network,
-            temp_component: Self::select_temp_component(
-                components,
-                config.sensors.temperature.as_deref(),
-            ),
+            components,
             config,
         }
-    }
-
-    /// Selects the temperature component that corresponds to the configured sensor
-    ///
-    /// Returns `None` if not configured or if nothing is found.
-    fn select_temp_component(components: Components, temp_id: Option<&str>) -> Option<Component> {
-        let temp_id = temp_id?;
-        Vec::from(components)
-            .into_iter()
-            .find(|c| c.id() == Some(temp_id))
     }
 
     /// Updates the data and returns a status message
@@ -92,13 +77,16 @@ impl Daemon {
             self.network.refresh(true);
         }
 
-        let component = &mut self.temp_component;
-        if self
-            .registration_descriptor
-            .has_sensor(Sensor::CpuTemperature)
-            && let Some(c) = component
-        {
-            c.refresh();
+        if !self.config.sensors.temperature.is_empty() {
+            for component in self.components.iter_mut() {
+                if let Some(id) = component.id()
+                    && self
+                        .registration_descriptor
+                        .has_sensor(Sensor::Temperature(id.to_string()))
+                {
+                    component.refresh();
+                }
+            }
         }
 
         StatusMessage {
@@ -107,7 +95,7 @@ impl Daemon {
             memory_usage: Some(
                 100.0 * (self.system.used_memory() as f32 / self.system.total_memory() as f32),
             ),
-            cpu_temp: component.as_ref().and_then(|c| c.temperature()),
+            temperature: self.select_temperature(),
             network: self.select_network(),
         }
     }
@@ -130,6 +118,19 @@ impl Daemon {
         map
     }
 
+    /// Selects the current network values according to the configured interfaces
+    fn select_temperature(&self) -> HashMap<String, f32> {
+        let mut map = HashMap::new();
+        for id in &self.config.sensors.temperature {
+            if let Some(component) = self.components.iter().find(|c| c.id() == Some(id))
+                && let Some(temperature) = component.temperature()
+            {
+                map.insert(id.clone(), temperature);
+            };
+        }
+
+        map
+    }
     fn rate(&self, diff: u64) -> f64 {
         (diff / self.config.mqtt.update_period) as f64 / 1024.0
     }
@@ -141,9 +142,10 @@ impl Daemon {
         self.registration_descriptor.add_component(Sensor::CpuUsage);
         self.registration_descriptor
             .add_component(Sensor::MemoryUsage);
-        if self.temp_component.is_some() {
+        for id in &self.config.sensors.temperature {
+            debug!("Adding temperature {id}");
             self.registration_descriptor
-                .add_component(Sensor::CpuTemperature);
+                .add_component(Sensor::Temperature(id.clone()));
         }
         for interface in &self.config.sensors.network {
             debug!("Adding interface {interface}");

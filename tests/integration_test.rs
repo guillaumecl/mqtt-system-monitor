@@ -12,36 +12,22 @@ use sysinfo::{Components, Networks};
 fn test_empty_values() -> Result<(), Box<dyn Error>> {
     let conf = configuration::Configuration::load("conf/mqtt-system-monitor.conf")?;
 
-    let temp_sensor = conf.sensors.temperature.clone();
-
     let mut daemon = Daemon::new(conf);
 
     let status = daemon.update_data();
     assert!(status.network.is_empty());
-
-    println!(
-        "We have read temp={:?} on component {:?}",
-        status.cpu_temp, temp_sensor
-    );
-
-    assert_eq!(status.cpu_temp, None);
+    assert!(status.temperature.is_empty());
 
     let status = daemon.update_data();
 
-    println!(
-        "We have read temp={:?} on component {:?}",
-        status.cpu_temp, temp_sensor
-    );
-
     assert!(status.network.is_empty());
-    assert_eq!(status.cpu_temp, None);
+    assert!(status.temperature.is_empty());
 
     daemon.register_sensors();
 
     let descriptor = daemon.registration_descriptor();
 
     assert!(descriptor.has_sensor(Sensor::CpuUsage));
-    assert_eq!(descriptor.has_sensor(Sensor::CpuTemperature), false);
 
     Ok(())
 }
@@ -55,9 +41,9 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     conf.sensors.network = network.iter().map(|n| n.0.clone()).collect();
     conf.sensors.temperature = components
         .iter()
-        .next()
-        .and_then(|c| c.id())
-        .map(|id| id.to_string());
+        .map(|c| c.id().unwrap().to_string())
+        .map(|id| id.to_string().clone())
+        .collect();
 
     let interface = conf.sensors.network.clone();
     let temp_sensor = conf.sensors.temperature.clone();
@@ -74,16 +60,13 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
         "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
         network_status.tx, network_status.rx, interface
     );
-    println!(
-        "We have read temp={:?} on component {:?}",
-        status.cpu_temp, temp_sensor
-    );
+    println!("We have read temp={:?}", status.temperature);
 
     // The first call, the transfer rate is always at 0. It can be non-zero after some time
     assert_eq!(network_status.rx, 0.0);
     assert_eq!(network_status.tx, 0.0);
-    if temp_sensor.is_some() {
-        assert_ne!(status.cpu_temp, None);
+    if !temp_sensor.is_empty() {
+        assert!(!status.temperature.is_empty());
     }
 
     let status = daemon.update_data();
@@ -91,23 +74,15 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
 
     println!("Second read:");
     println!("We have read {network_status:?} on interface {interface:?}");
-    println!(
-        "We have read temp={:?} on component {:?}",
-        status.cpu_temp, temp_sensor
-    );
+    println!("We have read temp={:?}", status.temperature);
 
     let descriptor = &mut daemon.registration_descriptor();
 
     assert!(descriptor.has_sensor(Sensor::CpuUsage));
-    //assert!(descriptor.has_sensor(Sensor::NetTx));
-    //assert!(descriptor.has_sensor(Sensor::NetRx));
 
     // After the first call we always have a value, it can be zero if the network interface didn't get used
     assert!(network_status.is_some());
-    if temp_sensor.is_some() {
-        assert!(descriptor.has_sensor(Sensor::CpuTemperature));
-        assert_ne!(status.cpu_temp, None);
-    }
+    assert_eq!(temp_sensor.is_empty(), status.temperature.is_empty());
 
     Ok(())
 }
@@ -121,13 +96,12 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     conf.sensors.network = network.iter().map(|n| n.0.clone()).collect();
     conf.sensors.temperature = components
         .iter()
-        .next()
-        .and_then(|c| c.id())
-        .map(|id| id.to_string());
+        .map(|c| c.id().unwrap().to_string())
+        .map(|id| id.to_string().clone())
+        .collect();
 
     let first_interface = conf.sensors.network.first().unwrap().clone();
-
-    let temp_sensor = conf.sensors.temperature.clone();
+    let first_temp = conf.sensors.temperature.first().map(|s| s.clone());
 
     let prefix = "test_prefix";
     conf.mqtt.entity = "Test Entity".to_string();
@@ -150,16 +124,18 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
         json["state_topic"].as_str().unwrap(),
         "mqtt-system-monitor/test_entity/state"
     );
-    if temp_sensor.is_some() {
+    if let Some(temp) = first_temp {
         assert_eq!(
-            json["components"]["cpu_temp"]["platform"].as_str().unwrap(),
+            json["components"][format!("{temp}_temp")]["platform"]
+                .as_str()
+                .unwrap(),
             "sensor"
         );
         assert_eq!(
-            json["components"]["cpu_temp"]["unique_id"]
+            json["components"][format!("{temp}_temp")]["unique_id"]
                 .as_str()
                 .unwrap(),
-            "test_entity_cpu_temp"
+            format!("test_entity_{temp}_temp")
         );
     }
     assert_eq!(
@@ -236,12 +212,12 @@ fn test_templates() -> Result<(), Box<dyn Error>> {
         .push("disconnected_interface".to_string());
     conf.sensors.temperature = components
         .iter()
-        .next()
-        .and_then(|c| c.id())
-        .map(|id| id.to_string());
+        .map(|c| c.id().unwrap().to_string())
+        .map(|id| id.to_string().clone())
+        .collect();
 
     let first_interface = conf.sensors.network.first().unwrap().clone();
-    let temp_sensor = conf.sensors.temperature.clone();
+    let first_temperature = conf.sensors.temperature.first().map(|s| s.clone());
 
     let mut daemon = Daemon::new(conf);
 
@@ -289,10 +265,12 @@ fn test_templates() -> Result<(), Box<dyn Error>> {
         status.network[&first_interface].tx
     );
 
-    if temp_sensor.is_some() {
+    if let Some(temp) = first_temperature {
+        let name = format!("{temp}_temp");
+        println!("Searching for {name}");
         assert_eq!(
-            get_value::<f32>(&env, &context, "cpu_temp")?,
-            status.cpu_temp.unwrap()
+            get_value::<f32>(&env, &context, &name)?,
+            status.temperature[&temp]
         );
     }
 

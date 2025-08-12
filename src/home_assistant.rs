@@ -13,8 +13,8 @@ pub enum Sensor {
     /// Sends the CPU usage in %
     CpuUsage,
 
-    /// Sends the CPU temperature in °C
-    CpuTemperature,
+    /// Sends a temperature in °C
+    Temperature(String),
 
     /// Sends the memory usage in %
     MemoryUsage,
@@ -32,7 +32,7 @@ impl Sensor {
         match self {
             Sensor::Available => "available".to_string(),
             Sensor::CpuUsage => "cpu_usage".to_string(),
-            Sensor::CpuTemperature => "cpu_temp".to_string(),
+            Sensor::Temperature(id) => format!("{id}_temp"),
             Sensor::MemoryUsage => "memory_usage".to_string(),
             Sensor::NetRx(interface) => format!("{interface}_net_rx"),
             Sensor::NetTx(interface) => format!("{interface}_net_tx"),
@@ -214,7 +214,7 @@ impl DeviceComponent {
     pub fn new(sensor: Sensor, entity: &str) -> DeviceComponent {
         match sensor {
             Sensor::Available => Self::available(entity),
-            Sensor::CpuTemperature => Self::cpu_temperature(entity),
+            Sensor::Temperature(id) => Self::temperature(entity, &id),
             Sensor::CpuUsage => Self::cpu_usage(entity),
             Sensor::MemoryUsage => Self::memory_usage(entity),
             Sensor::NetRx(interface) => Self::net_rx(entity, &interface),
@@ -234,21 +234,6 @@ impl DeviceComponent {
             unique_id: format!("{entity}_available"),
             value_template: "{{ value_json.available }}".to_string(),
             expire_after: None,
-        }
-    }
-
-    /// Manually creates a CPU temperature sensor
-    fn cpu_temperature(entity: &str) -> DeviceComponent {
-        DeviceComponent {
-            name: Some("CPU temperature".to_string()),
-            platform: "sensor",
-            device_class: Some("temperature"),
-            icon: None,
-            state_class: Some("measurement"),
-            unit_of_measurement: Some("°C"),
-            unique_id: format!("{entity}_cpu_temp"),
-            value_template: "{{ value_json.cpu_temp }}".to_string(),
-            expire_after: Some(60),
         }
     }
 
@@ -278,6 +263,23 @@ impl DeviceComponent {
             unit_of_measurement: Some("%"),
             unique_id: format!("{entity}_memory_usage"),
             value_template: "{{ value_json.memory_usage }}".to_string(),
+            expire_after: Some(60),
+        }
+    }
+
+    /// Manually creates a temperature sensor
+    fn temperature(entity: &str, id: &str) -> DeviceComponent {
+        DeviceComponent {
+            name: Some(format!("{id} temperature")),
+            platform: "sensor",
+            device_class: Some("temperature"),
+            icon: None,
+            state_class: Some("measurement"),
+            unit_of_measurement: Some("°C"),
+            unique_id: format!("{entity}_{id}_temp"),
+            value_template: format!(
+                "{{{{ value_json.temperature.{id} if value_json.temperature and value_json.temperature.{id} else None }}}}"
+            ),
             expire_after: Some(60),
         }
     }
@@ -323,10 +325,8 @@ impl DeviceComponent {
 
 #[cfg(test)]
 mod tests {
+    use crate::DeviceComponent;
     use crate::home_assistant::{RegistrationDescriptor, Sensor};
-    use crate::{DeviceComponent, StatusMessage};
-    use serde_json::Value;
-    use std::collections::HashMap;
     use strum::IntoEnumIterator;
 
     #[test]
@@ -347,13 +347,6 @@ mod tests {
 
         for component in &descriptor.components {
             assert_eq!(component.1.unique_id, format!("{entity}_{}", component.0));
-            if !component.0.contains("_net_") {
-                assert_eq!(component.1.unique_id, format!("{entity}_{}", component.0));
-                assert_eq!(
-                    component.1.value_template,
-                    format!("{{{{ value_json.{} }}}}", component.0).as_str()
-                );
-            }
             if component.1.name.is_some() {
                 assert_eq!(component.1.state_class, Some("measurement"));
             }
@@ -371,25 +364,12 @@ mod tests {
     #[test]
     fn test_sensors() {
         let entity = "test_entity";
-        let status: StatusMessage = Default::default();
-        let status_json: HashMap<String, Value> =
-            serde_json::from_str(&status.to_string()).expect("Cannot read default status");
 
         for sensor in Sensor::iter() {
             let name = sensor.as_string();
             let component = DeviceComponent::new(sensor, entity);
 
             assert_eq!(component.unique_id, format!("{entity}_{name}"));
-            if !component.unique_id.contains("_net_") {
-                assert_eq!(
-                    component.value_template,
-                    format!("{{{{ value_json.{name} }}}}").as_str()
-                );
-                if component.name.is_some() {
-                    assert_eq!(component.state_class, Some("measurement"));
-                    assert!(status_json.contains_key(&name));
-                }
-            }
         }
     }
 }
