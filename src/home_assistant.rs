@@ -192,6 +192,11 @@ impl RegistrationDescriptor {
     pub fn state_topic(&self) -> &str {
         &self.state_topic
     }
+
+    /// Returns the registration descriptor
+    pub fn components(&self) -> &HashMap<String, DeviceComponent> {
+        &self.components
+    }
 }
 
 impl fmt::Display for RegistrationDescriptor {
@@ -309,6 +314,10 @@ impl DeviceComponent {
             ),
             expire_after: Some(60),
         }
+    }
+
+    pub fn value_template(&self) -> &str {
+        &self.value_template
     }
 }
 

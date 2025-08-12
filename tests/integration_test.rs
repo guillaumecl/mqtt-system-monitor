@@ -1,9 +1,11 @@
+use minijinja::{Environment, context};
 use mqtt_system_monitor::configuration;
 use mqtt_system_monitor::daemon::Daemon;
 use mqtt_system_monitor::home_assistant::Sensor;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
+use std::str::FromStr;
 use sysinfo::{Components, Networks};
 
 #[test]
@@ -202,6 +204,97 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
             .unwrap(),
         format!("test_entity_{first_interface}_net_tx")
     );
+
+    Ok(())
+}
+
+fn get_value<T>(
+    env: &Environment,
+    context: &minijinja::Value,
+    name: &str,
+) -> Result<T, <T as FromStr>::Err>
+where
+    T: FromStr,
+{
+    T::from_str(
+        &env.get_template(name)
+            .expect(&format!("Cannot find value {name}"))
+            .render(&context)
+            .expect("Failed to render value"),
+    )
+}
+
+#[test]
+fn test_templates() -> Result<(), Box<dyn Error>> {
+    let network = Networks::new_with_refreshed_list();
+    let components = Components::new_with_refreshed_list();
+    let mut conf = configuration::Configuration::load("conf/mqtt-system-monitor.conf")?;
+
+    conf.sensors.network = network.iter().map(|n| n.0.clone()).collect();
+    conf.sensors
+        .network
+        .push("disconnected_interface".to_string());
+    conf.sensors.temperature = components
+        .iter()
+        .next()
+        .map(|c| c.label())
+        .map(|l| l.to_string());
+
+    let first_interface = conf.sensors.network.first().unwrap().clone();
+    let temp_sensor = conf.sensors.temperature.clone();
+
+    let mut daemon = Daemon::new(conf);
+
+    daemon.register_sensors();
+
+    let status = daemon.update_data();
+
+    let registration = daemon.registration_descriptor();
+
+    println!("Input data: {status:?}");
+    let mut env = Environment::new();
+    let context = context!(value_json => status);
+    for (name, device) in registration.components() {
+        env.add_template(name, device.value_template())
+            .expect("Invalid expression");
+        let template = env.get_template(name).expect("Invalid template");
+        let value = template.render(&context)?;
+
+        println!("For component {name} the value is {value}");
+        assert!(!value.is_empty());
+    }
+
+    assert_eq!(
+        get_value::<f32>(&env, &context, "cpu_usage")?,
+        status.cpu_usage.unwrap()
+    );
+    assert_eq!(
+        get_value::<f32>(&env, &context, "memory_usage")?,
+        status.memory_usage.unwrap()
+    );
+    assert_eq!(
+        get_value::<String>(&env, &context, "disconnected_interface_net_rx")?,
+        "none"
+    );
+    assert_eq!(
+        get_value::<String>(&env, &context, "disconnected_interface_net_tx")?,
+        "none"
+    );
+    assert_eq!(
+        get_value::<f64>(&env, &context, &format!("{first_interface}_net_rx"))?,
+        status.network[&first_interface].rx
+    );
+    assert_eq!(
+        get_value::<f64>(&env, &context, &format!("{first_interface}_net_tx"))?,
+        status.network[&first_interface].tx
+    );
+
+    if temp_sensor.is_some() {
+        assert_eq!(
+            get_value::<f32>(&env, &context, "cpu_temp")?,
+            status.cpu_temp.unwrap()
+        );
+    }
 
     Ok(())
 }
