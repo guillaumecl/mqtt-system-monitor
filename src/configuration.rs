@@ -43,7 +43,7 @@ pub struct Mqtt {
 /// Contains the configuration for the sensors
 #[derive(Deserialize)]
 pub struct Sensors {
-    /// If set, contains a temperature label to search in `sysinfo`'s component reports.
+    /// If set, contains a temperature idd to search in `sysinfo`'s component reports.
     pub temperature: Option<String>,
 
     /// If set, contains a list of network interface to monitor.

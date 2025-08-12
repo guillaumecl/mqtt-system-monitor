@@ -72,11 +72,11 @@ impl Daemon {
     /// Selects the temperature component that corresponds to the configured sensor
     ///
     /// Returns `None` if not configured or if nothing is found.
-    fn select_temp_component(components: Components, temp_name: Option<&str>) -> Option<Component> {
-        let temp_label = temp_name?;
+    fn select_temp_component(components: Components, temp_id: Option<&str>) -> Option<Component> {
+        let temp_id = temp_id?;
         Vec::from(components)
             .into_iter()
-            .find(|c| c.label() == temp_label)
+            .find(|c| c.id() == Some(temp_id))
     }
 
     /// Updates the data and returns a status message

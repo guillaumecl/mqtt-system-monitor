@@ -56,8 +56,8 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     conf.sensors.temperature = components
         .iter()
         .next()
-        .map(|c| c.label())
-        .map(|l| l.to_string());
+        .and_then(|c| c.id())
+        .map(|id| id.to_string());
 
     let interface = conf.sensors.network.clone();
     let temp_sensor = conf.sensors.temperature.clone();
@@ -122,8 +122,8 @@ fn test_registration() -> Result<(), Box<dyn Error>> {
     conf.sensors.temperature = components
         .iter()
         .next()
-        .map(|c| c.label())
-        .map(|l| l.to_string());
+        .and_then(|c| c.id())
+        .map(|id| id.to_string());
 
     let first_interface = conf.sensors.network.first().unwrap().clone();
 
@@ -237,8 +237,8 @@ fn test_templates() -> Result<(), Box<dyn Error>> {
     conf.sensors.temperature = components
         .iter()
         .next()
-        .map(|c| c.label())
-        .map(|l| l.to_string());
+        .and_then(|c| c.id())
+        .map(|id| id.to_string());
 
     let first_interface = conf.sensors.network.first().unwrap().clone();
     let temp_sensor = conf.sensors.temperature.clone();

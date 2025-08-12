@@ -4,6 +4,10 @@
 
 ## [Unreleased] - ReleaseDate
 
+### Breaking changes
+
+- The temperature ID is used instead of the label
+
 ## [1.2.0] - 2025-08-09
 
 ### Added
