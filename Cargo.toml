@@ -15,18 +15,18 @@ publish = true
 name = "mqtt_system_monitor"
 
 [dependencies]
-log = "0.4.17"
-rumqttc = "0.24.0"
+log = "0.4"
+rumqttc = "0.25"
 serde = { version = "1.0", features = ["derive"] }
-serde-inline-default = "0.2.3"
+serde-inline-default = "1.0"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-toml = "0.9.2"
+toml = "1.1"
 stderrlog = "0.6.0"
 tokio = { version = "1", features = ["full"] }
-sysinfo = "0.37.0"
-strum = "0.27"
-strum_macros = "0.27"
-convert_case = "0.8.0"
+sysinfo = "0.39"
+strum = "0.28"
+strum_macros = "0.28"
+convert_case = "0.11"
 
 [dev-dependencies]
-minijinja = "2.11.0"
+minijinja = "2.11"
