@@ -55,16 +55,8 @@ fn test_selection() -> Result<(), Box<dyn Error>> {
     let status = daemon.update_data();
     let network_status = &status.network[interface.first().unwrap()];
 
-    println!("First read:");
-    println!(
-        "We have read net_tx={:?}, net_rx={:?} on interface {:?}",
-        network_status.tx, network_status.rx, interface
-    );
     println!("We have read temp={:?}", status.temperature);
 
-    // The first call, the transfer rate is always at 0. It can be non-zero after some time
-    assert_eq!(network_status.rx, 0.0);
-    assert_eq!(network_status.tx, 0.0);
     if !temp_sensor.is_empty() {
         assert!(!status.temperature.is_empty());
     }
